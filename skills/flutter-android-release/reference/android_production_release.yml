@@ -1,0 +1,60 @@
+name: Android Production Release
+
+on:
+  push:
+    branches:
+      - production
+
+jobs:
+  deploy:
+    name: Deploy to Play Store
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
+      - name: Install Fastlane
+        run: gem install fastlane
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Decode Keystore & Secrets
+        env:
+          PLAYSTORE_CREDENTIALS: ${{ secrets.PLAYSTORE_CREDENTIALS }}
+          KEYSTORE_JKS_BASE64: ${{ secrets.KEYSTORE_JKS_BASE64 }}
+          KEY_PROPERTIES: ${{ secrets.KEY_PROPERTIES }}
+        run: |
+          # Write Fastlane credentials
+          echo "$PLAYSTORE_CREDENTIALS" > android/fastlane/playstore-credentials.json
+          
+          # Write signing properties
+          echo "$KEY_PROPERTIES" > android/key.properties
+          
+          # Decode JKS keystore
+          echo "$KEYSTORE_JKS_BASE64" | base64 --decode > android/app/upload-keystore.jks
+
+      - name: Run Release Script
+        run: |
+          chmod +x playstorerelease.sh
+          ./playstorerelease.sh

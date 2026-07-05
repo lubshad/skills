@@ -1,0 +1,208 @@
+---
+name: frappe-app-navigation
+description: Use when creating or editing Frappe desktop icons, workspace sidebars, app navigation, or desk entry points.
+---
+
+Follow these rules when giving a new Frappe app its entry point on the desk — a single Desktop Icon that opens a Workspace Sidebar listing the app's key documents.
+
+Read `frontend-admin-panels.md` first for admin/back-office navigation intent and operator workflow expectations. This file owns only Frappe Desk Desktop Icon and Workspace Sidebar implementation details.
+
+## When To Apply
+
+- A new app that user-facing staff will open from `/app`.
+- Any time you are adding the first navigational surface to a CoreAxis Solutions app.
+- Updating the sidebar of an existing app to surface newly added DocTypes, Reports, or Pages.
+
+## Core Rule
+
+- **Always declarative, never code.** Use Frappe's auto-synced directories. No `after_install` hooks, no fixtures, no patches.
+- **One Desktop Icon per app**, whose `link_type` is `Workspace Sidebar` and whose `sidebar` points to the app's Workspace Sidebar. This turns the icon on `/app` into a click target that opens the sidebar.
+- **Only surface required docs.** The sidebar is for frequently used documents, not every DocType in the app. Start minimal (often just `<App> Settings`) and add items as real workflows emerge. Do not dump the full module tree in.
+
+## File Layout
+
+```
+apps/<app>/<app>/
+├── desktop_icon/
+│   └── <app>.json              # one file per icon
+└── workspace_sidebar/
+    └── <app>.json              # one file per sidebar
+```
+
+Both directories live at the inner module-package root (`apps/<app>/<app>/`) — the same level as `hooks.py` and `modules.txt`. Frappe auto-discovers them on `bench install-app` and `bench migrate`.
+
+## Desktop Icon — required fields
+
+```json
+{
+  "doctype": "Desktop Icon",
+  "name": "<App Title>",
+  "label": "<App Title>",
+  "app": "<app_name>",
+  "link_type": "Workspace Sidebar",
+  "link_to": "<App Title>",
+  "sidebar": "<App Title>",
+  "icon_type": "Link",
+  "bg_color": "blue",
+  "standard": 1,
+  "owner": "Administrator",
+  "modified_by": "Administrator",
+  "creation": "<YYYY-MM-DD HH:MM:SS.000000>",
+  "modified": "<YYYY-MM-DD HH:MM:SS.000000>"
+}
+```
+
+- `link_to` and `sidebar` must equal the Workspace Sidebar `name`.
+- `standard: 1` is mandatory — otherwise Frappe's orphan cleanup deletes it on migrate.
+- `app` must match the Python app slug in `modules.txt`/`hooks.py`.
+
+## Workspace Sidebar — required fields
+
+```json
+{
+  "doctype": "Workspace Sidebar",
+  "name": "<App Title>",
+  "title": "<App Title>",
+  "module": "<Module Name from modules.txt>",
+  "app": "<app_name>",
+  "header_icon": "<lucide-icon-name>",
+  "standard": 1,
+  "items": [ /* see below */ ],
+  "owner": "Administrator",
+  "modified_by": "Administrator",
+  "creation": "<YYYY-MM-DD HH:MM:SS.000000>",
+  "modified": "<YYYY-MM-DD HH:MM:SS.000000>"
+}
+```
+
+## Icons
+
+Frappe uses **Lucide icons** exclusively. Icon names are kebab-case strings (e.g., `"calendar-days"`, `"lock-keyhole"`).
+
+- Browse valid names at https://lucide.dev/icons/ — names are exact and case-sensitive; an unknown name renders nothing silently
+- `header_icon` on the sidebar root — pick the broadest concept for the app
+- Every top-level Link item and Section Break **must** have a non-empty `icon`
+- Child items (`"child": 1`) may omit `icon` — they inherit context from their Section Break
+- Do not reuse the same icon for two different top-level items in the same sidebar
+- After any icon change, bump `"modified"` so `bench migrate` picks it up
+
+**Common icon mappings:**
+
+| Concept | Icon |
+|---------|------|
+| Settings / configuration | `settings` |
+| User / person | `user` |
+| Users / group | `users` |
+| Employee | `square-user-round` |
+| Dashboard / overview | `layout-dashboard` |
+| Home | `home` |
+| Sport / game | `trophy` |
+| Position / role (sport) | `shield` |
+| Template / checklist | `clipboard-list` |
+| Education / learning | `book-open` |
+| Certification | `award` |
+| Match / event date | `calendar-days` |
+| Career / job | `briefcase` |
+| Achievement / medal | `medal` |
+| Media / image gallery | `image` |
+| Review / comment | `message-square` |
+| Report / document | `file-spreadsheet` |
+| Permissions / lock | `lock-keyhole` |
+| Audit / secure log | `file-lock` |
+| Setup / database | `database` |
+| Organization | `organization` |
+| Payments / finance | `credit-card` |
+| Email | `mail` |
+| Integration / API | `plug` |
+| Automation | `zap` |
+| Print | `printer` |
+| Website | `globe` |
+| Map / location | `map` |
+| Health / medical | `heart-pulse` |
+| Notification / alert | `bell` |
+| Calendar | `calendar` |
+| Chart / analytics | `bar-chart-2` |
+
+When no exact match exists, prefer a concrete noun icon over a generic one.
+
+## Sidebar Item Types
+
+Each entry in `items[]` is one line in the sidebar. Keep fields to only what the type needs.
+
+**Link item** (DocType, Report, Page, or URL):
+
+```json
+{
+  "type": "Link",
+  "label": "Vimeo Settings",
+  "link_type": "DocType",        // DocType | Report | Page | URL
+  "link_to": "Vimeo Settings",   // exact name; for URL use the `url` key instead
+  "icon": "settings",            // lucide icon
+  "indent": 0,
+  "collapsible": 1
+}
+```
+
+**Section break** (visual grouping only, no destination):
+
+```json
+{
+  "type": "Section Break",
+  "label": "Reports",
+  "icon": "file-spreadsheet",
+  "indent": 1,
+  "link_type": "DocType",
+  "collapsible": 1
+}
+```
+
+- Use `indent: 1` on children that live under a Section Break.
+- Use `child: 1` on items nested under a Section Break (matches Frappe's existing sidebars).
+- For external URL items, set `link_type: "URL"` and add `"url": "/dashboard/..."`.
+
+## Rules for Choosing Sidebar Items
+
+- **Required docs only.** A good rule of thumb: an item belongs here if a normal operator will open it at least weekly. Admin-only infrequent settings still belong (one item), but back-office child DocTypes do not.
+- **Settings first.** The app's Single Settings DocType is almost always the first item.
+- **No duplicates.** Don't re-link the same DocType from multiple sections.
+- **No dead links.** Every `link_to` must resolve to an existing DocType/Report/Page at install time. Verify with `Glob apps/<any>/<any>/**/doctype/<slug>/<slug>.json`.
+- **Group with Section Breaks** only when you have 3+ items in the group — otherwise leave them flat.
+
+## Registration
+
+- No entry is needed in `hooks.py`. Frappe's `sync_for()` discovers both directories automatically.
+- `modules.txt` must already contain the module name used in the Workspace Sidebar's `module` field.
+
+## Post-Edit Migration — Mandatory
+
+**Any edit to a `desktop_icon/*.json` or `workspace_sidebar/*.json` file MUST be followed by `bench migrate` in the same turn.** Frappe only picks up the declarative JSON on migrate — without it the desk still shows the pre-edit state and the user cannot verify the change.
+
+This applies to:
+- Creating a new icon or sidebar file
+- Adding, removing, or reordering sidebar items
+- Changing labels, icons, colors, or `link_to` targets
+- Any edit that bumped `modified` (if you didn't bump `modified`, fix that first — the sync step is a no-op otherwise)
+
+Steps:
+
+1. **Look up the site.** Do not ask the user which site unless the app-to-site mapping is genuinely unknown. Check `.agents/skills/app-connections.md` first — it maps each Frappe app on this bench to its primary site (e.g. `exam` → `mcal.localhost`, `masar` → `masar.localhost`).
+2. **Run migrate for that site:**
+
+   ```bash
+   bench --site <site> migrate
+   ```
+
+3. **Confirm the tail of the log has no `Traceback` / `Error`.** The `Removing orphan Workspace Sidebars` / `Removing orphan Desktop Icons` lines are normal — records with `standard: 1` are preserved.
+4. **Tell the user to hard-refresh `/app`** and confirm:
+   - The icon appears with the correct label and color.
+   - Clicking it opens the sidebar (not a DocType list).
+   - Every sidebar item navigates to the intended destination.
+
+If the icon or sidebar fails to appear after migrate, the usual cause is `standard: 0` (orphan-cleaned), a stale `modified` timestamp, or a `name` mismatch between the icon's `sidebar`/`link_to` and the sidebar's `name`.
+
+## Reference Example
+
+- `apps/frappe_vimeo/frappe_vimeo/desktop_icon/frappe_vimeo.json`
+- `apps/frappe_vimeo/frappe_vimeo/workspace_sidebar/frappe_vimeo.json`
+
+These mirror the pattern used by `apps/buzz/buzz/desktop_icon/buzz.json` + `apps/buzz/buzz/workspace_sidebar/buzz.json`, scoped down to a single "Vimeo Settings" item for v1.

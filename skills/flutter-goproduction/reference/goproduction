@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# Ensure we have the latest refs
+git fetch origin
+
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+echo "Current branch: $current_branch"
+
+# 1. Run version increment script
+echo "Running version increment..."
+./version_increment.sh
+
+# 2. Commit and push current branch
+echo "Committing changes..."
+# Check if there are changes to commit
+if [[ -n $(git status -s) ]]; then
+    git add .
+    read -p "Enter commit message (default: Bump version for production release): " commit_msg
+    commit_msg=${commit_msg:-Bump version for production release}
+    git commit -m "$commit_msg"
+    
+    echo "Pushing $current_branch to remote..."
+    git push origin HEAD
+else
+    echo "No changes to commit."
+fi
+
+# 3. Restore production-backup from production
+echo "Restoring production-backup from production..."
+# Updates remote production-backup with what is currently on remote production
+git push origin origin/production:refs/heads/production-backup --force
+# Update local production-backup as well
+echo "Updating local production-backup..."
+git branch -f production-backup origin/production
+
+# 4. Restore production from main (current branch)
+# The user specified "restore production branch with main branch".
+# Assuming the current branch IS main (or the branch we want to promote).
+echo "Restoring production from $current_branch..."
+git push origin HEAD:refs/heads/production --force
+# Update local production as well
+echo "Updating local production..."
+git branch -f production HEAD
+
+echo "Production release process completed."
