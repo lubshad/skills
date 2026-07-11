@@ -5,6 +5,17 @@ description: Use when creating, editing, or reviewing Frappe APIs used by Flutte
 
 Follow these API contract rules strictly when working on Frappe-backed features.
 
+## When Not To Apply
+
+- Do not use this skill for Frappe Desk-only methods with no external consumer.
+- Use it alongside, not instead of, `frappe-python.md` for endpoint implementation.
+
+## Read Alongside
+
+- Backend implementation: `frappe-python.md`.
+- Files or images: `frappe-file-images.md`.
+- External or long-running work: `frappe-async-external-apis.md`.
+
 ## When To Apply
 
 - Apply this skill for any Frappe API that is consumed by Flutter, Next.js, or other external clients.
@@ -36,3 +47,9 @@ Follow these API contract rules strictly when working on Frappe-backed features.
 
 - Put reusable response-building logic in shared private helpers instead of repeating payload assembly in each whitelisted method.
 - When a feature has both read and write endpoints, prefer one serializer/helper so all flows return the same normalized shape.
+
+## Verification
+
+- Verify authenticated and unauthorized responses do not expose fields beyond the caller's permissions.
+- Verify list, detail, create, and update responses use compatible field names and normalized asset URLs.
+- Verify additive changes preserve existing response fields and types for active clients.

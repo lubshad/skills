@@ -118,3 +118,9 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 - Relative or site-rooted values such as `files/image.png`, `/files/image.png`, and `/assets/app/logo.svg` should resolve against the configured backend/Frappe base URL.
 - For Flutter apps, put this behavior in a shared core utility such as `FrappeFileUrl.normalize(...)` and reuse it instead of rebuilding URLs inside widgets or feature repositories.
 - For Next.js apps, use the shared asset URL helper from `src/lib/apiBaseUrl.ts` instead of duplicating URL logic in feature code.
+
+## Verification
+
+- Verify each configured URL resolves from its intended local or production client environment.
+- Verify public, private, and app-asset file URLs use the correct shared normalization path.
+- Verify secrets remain in runtime configuration and never enter committed source or client-visible payloads.

@@ -142,3 +142,9 @@ They must not land under nested paths like:
 
 - `sites/masar.localhost/sync_server_data.sh` should mirror the `mcal` site sync pattern
 - If a key path is ambiguous, prefer making it configurable via `--ssh-key`
+
+## Verification
+
+- Confirm the selected site, destination, and SSH key before a restore or sync mutates data.
+- Verify database, public files, and private files restore to their expected site paths.
+- Verify the restored site starts and can read attached files before reporting success.

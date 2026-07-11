@@ -1,4 +1,7 @@
-# Skill: flutter-goproduction
+---
+name: flutter-goproduction
+description: Use when setting up a Flutter production-promotion script, version-increment script, or branch release workflow.
+---
 
 # Flutter Branch Promotion & Version Increment
 

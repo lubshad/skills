@@ -5,6 +5,17 @@ description: Use when Frappe backend code calls external APIs, webhooks, storage
 
 Follow these async integration rules strictly when working on Frappe code that talks to external systems.
 
+## When Not To Apply
+
+- Do not enqueue work that must return a verified remote result before a safety-critical local action can proceed; document that synchronous requirement explicitly.
+- Do not use this skill for local database work with no remote or long-running dependency.
+
+## Read Alongside
+
+- Backend implementation: `frappe-python.md`.
+- APIs consumed by clients: `frappe-api-contracts.md`.
+- Mounted client refreshes after background updates: `frappe-realtime-updates.md`.
+
 ## When To Apply
 
 - Apply this skill for any backend change that calls an external API, webhook target, payment gateway, storage provider, or other network service.
@@ -40,3 +51,10 @@ Follow these async integration rules strictly when working on Frappe code that t
 - Expose clear local status fields such as `queued`, `syncing`, `complete`, or `failed`.
 - Add manual retry or sync actions when the feature benefits from operator control.
 - Do not make the UI wait on remote processing when a local pending state is sufficient.
+
+## Verification
+
+- Verify the local intent and pending status persist before the job is eligible to run.
+- Verify a retry does not duplicate the remote side effect.
+- Verify failed jobs log diagnostic context without secrets and expose a recoverable local status.
+- Verify relevant clients receive a realtime update or have a supported refresh path when the job reaches a terminal state.

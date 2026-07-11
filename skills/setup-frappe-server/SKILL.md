@@ -111,3 +111,9 @@ Install additional apps:
 - Never run this script against an existing production host without first confirming backups and reviewing dry-run output.
 - Do not hardcode real passwords in a committed copy. Pass secrets at runtime or through a secure shell environment.
 - Avoid adding destructive cleanup, database reset, or site drop commands unless the user explicitly asks.
+
+## Verification
+
+- Review dry-run output and backups before executing against a production host.
+- Verify Bench, Redis, supervisor, nginx, and the site are healthy after provisioning.
+- Verify the bench user has intended SSH access and that no credentials were committed or printed.

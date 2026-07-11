@@ -350,3 +350,9 @@ if (field.fieldType == 'Icon' || field.fieldName.endsWith('_icon')) {
 - Icon picker trigger: use `AppTheme.surface` background, `AppTheme.border` border.
 - Both use `BorderRadius.circular(10)` and `InkWell` for tap feedback.
 - Error text shown below the field with `AppTheme.danger` color.
+
+## Verification
+
+- Verify icon and color values round-trip through create, edit, and list responses.
+- Verify invalid hex input is rejected before the request is sent.
+- Verify keyboard and touch selection work at the supported desktop and narrow-screen layouts.

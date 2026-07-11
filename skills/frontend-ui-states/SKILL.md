@@ -5,6 +5,17 @@ description: Use when designing loading, empty, error, retry, no-results, or no-
 
 Follow these UI state rules for all frontend platforms.
 
+## When Not To Apply
+
+- Do not add a loading or retry state to fully local, synchronous presentation-only components.
+- For a mutation that does not load a screen-sized dataset, use the product's inline pending and error feedback rather than a full-page state.
+
+## Read Alongside
+
+- Listings: `frontend-listing-screens.md`.
+- Forms and mutations: `frontend-forms.md`.
+- Flutter implementation: `flutter-common-widgets.md`; Next.js implementation: `nextjs-empty-states.md`.
+
 ## Required States
 
 Every screen or component that fetches data must handle:
@@ -39,3 +50,9 @@ Every screen or component that fetches data must handle:
 
 - Flutter shared widget rules live in `flutter-common-widgets.md`.
 - Next.js empty-state component usage lives in `nextjs-empty-states.md`.
+
+## Verification
+
+- Verify each applicable state can be reached without stale data disappearing during refresh or retry.
+- Verify retry repeats the failed operation with the current query or form state.
+- Verify errors are understandable without exposing raw server or exception details.

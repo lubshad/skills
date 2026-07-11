@@ -206,3 +206,9 @@ If the icon or sidebar fails to appear after migrate, the usual cause is `standa
 - `apps/frappe_vimeo/frappe_vimeo/workspace_sidebar/frappe_vimeo.json`
 
 These mirror the pattern used by `apps/buzz/buzz/desktop_icon/buzz.json` + `apps/buzz/buzz/workspace_sidebar/buzz.json`, scoped down to a single "Vimeo Settings" item for v1.
+
+## Verification
+
+- Run `bench --site <site> migrate` and confirm it completes without a traceback.
+- Hard-refresh `/app` and verify the icon, sidebar, labels, and destinations.
+- Verify a rerun preserves standard records and does not create duplicate navigation documents.

@@ -9,6 +9,18 @@ Common form rules that apply to all frontend platforms. Platform-specific form s
 
 Apply to every create/edit form, onboarding flow, profile form, filter form with persisted state, and reusable form component set.
 
+## When Not To Apply
+
+- Do not use this skill for a one-click confirmation, a search box without persisted state, or a display-only detail page.
+- Apply only the relevant validation and input rules to compact inline controls.
+
+## Read Alongside
+
+- Required: `frontend-ui-states.md` for remote loading or save failures.
+- Destructive or modal flows: `frontend-interaction-patterns.md`.
+- Flutter implementation: `flutter-forms.md`; Next.js implementation: `nextjs-forms.md`.
+- Development autofill: `frontend-dummy-data.md`.
+
 ## Layout And Structure
 
 - Group related fields into logical sections.
@@ -73,3 +85,10 @@ Set autocomplete/autofill hints where supported.
 - Follow `frontend-dummy-data.md`.
 - Every non-trivial form should provide a dev-only autofill button.
 - Autofill values must come from the single shared platform generator and write into the same controlled state as manual input.
+
+## Verification
+
+- Verify required and format validation, including keyboard-only submission.
+- Verify a pending save prevents duplicate submission and exposes one clear success or failure outcome.
+- Verify server validation errors remain attached to the affected fields where possible.
+- Verify the form remains usable with the keyboard open on supported mobile widths and at desktop widths.

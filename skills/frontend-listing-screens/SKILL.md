@@ -5,6 +5,19 @@ description: Use when designing listing, table, index, search, filter, paginatio
 
 Follow these listing-screen rules strictly for every frontend platform.
 
+## When Not To Apply
+
+- Do not apply full listing-screen controls to small static option lists, read-only summaries, or a short embedded related-record section.
+- Apply the relevant parts only when the surface loads remote or mutable records; do not add search, filtering, selection, or deletion without a product need.
+
+## Read Alongside
+
+- Required: `frontend-ui-states.md`.
+- Admin surfaces: `frontend-admin-panels.md`.
+- Platform implementation: `flutter-listing-screens.md` or `nextjs-listing-screens.md`.
+- Metadata-driven listings: `frontend-dynamic-listing-fields.md`.
+- Frappe-backed live data: `frappe-listing-realtime.md`.
+
 ## Data And Fetching
 
 - Fetch only the fields needed for list rows/cards. Load full details on the detail screen or modal.
@@ -22,7 +35,7 @@ Every listing screen must include:
 - Filtering with multiple filter fields where the data supports it.
 - Refresh or retry.
 - Empty, loading, error, and no-results states from `frontend-ui-states.md`.
-- Row actions: View and Delete only, unless the user explicitly requests another action.
+- A primary View/details action when records have a detail surface. Offer Delete only when the user has permission and the record lifecycle supports deletion; do not add other row actions unless the task requires them.
 
 ## Desktop / Admin Tables
 
@@ -31,9 +44,9 @@ Every listing screen must include:
 - Toolbar controls in the top control row must have full control-height tap targets, not icon-only or text-fragment-only activation areas (e.g., sort field/button pills should respond to taps across the full visible control height).
 - Table headers stay visible while rows scroll.
 - If columns overflow, scroll horizontally inside the table region only.
-- Include a checkbox column, Select All, local multi-row selection state, and a compact selected-count action segment in the top row.
+- Include a checkbox column, Select All, local multi-row selection state, and a compact selected-count action segment when the listing has a meaningful supported batch action.
 - Bulk action state stays local to the listing screen unless the product explicitly requires cross-screen selection.
-- When multi-row selection is available, the selected-count segment must expose a Delete action at minimum; do not leave selected actions as placeholders. Confirm with the selected record count before sending any destructive request.
+- When multi-row deletion is supported, expose it in the selected-count segment and confirm with the selected record count before sending the destructive request. Do not leave selected actions as placeholders.
 - Use shared table-header, pagination, loading, empty, and error widgets where the platform has them.
 - Avoid row dividers unless explicitly requested; use subtle alternating near-white row shading, selected/hover states, and alignment.
 
@@ -64,12 +77,19 @@ Every listing screen must include:
 
 ## Shared Loading Placeholders
 
-- Use `AdminListingLoadingPlaceholder` for listing loading states from `lib/core/widgets/` to keep shimmer/loading layouts consistent across admin listings.
-- Keep shared placeholders structure-first (checkbox/action rails + content bars) and avoid additional one-off outer insets or spacing not present in the actual row surface.
-- Build per-listing loading layouts by passing `columns: [...]` to match visible columns and table density, and prefer shared row patterns instead of custom placeholder rows.
+- Use the platform's shared listing-loading placeholder to keep shimmer/loading layouts consistent across admin listings.
+- Keep shared placeholders structure-first (selection/action rails and content bars) and avoid additional one-off outer insets or spacing not present in the actual row surface.
+- Build per-listing loading layouts to match visible columns and table density, and prefer shared row patterns instead of custom placeholder rows.
 
 ## Platform Adapters
 
 - Flutter implementation details live in `flutter-listing-screens.md`.
 - Next.js implementation details live in `nextjs-listing-screens.md`.
 - Frappe-backed listings that must update from server-pushed create, update, delete, workflow, or background-job changes must also read `frappe-listing-realtime.md` after the platform adapter.
+
+## Verification
+
+- Verify initial loading, empty, no-results, error/retry, refresh, and loading-more states.
+- Verify search/filter/sort reset pagination and retain the intended state after refresh.
+- Verify row selection and actions do not trigger detail navigation accidentally.
+- Verify the desktop table and the narrow-screen fallback at their supported breakpoints.

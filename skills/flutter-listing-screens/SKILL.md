@@ -29,6 +29,7 @@ Follow these Flutter implementation rules for listing screens. Read `frontend-li
 ## Widgets
 
 - Use shared widgets from `lib/core/widgets/` for repeated listing pieces such as toolbar, pagination, table header, selection controls, loading, empty, and error states.
+- Use `AdminListingLoadingPlaceholder` from `lib/core/widgets/` for admin-listing loading states; pass its `columns` configuration to match the visible table density.
 - Keep shared widgets generic: no feature models, BLoCs, repositories, or API calls inside them.
 - Feature screens own row data, selection state, callbacks, and feature-specific filters.
 - Manage multi-row selection locally in the listing screen, not in global providers.

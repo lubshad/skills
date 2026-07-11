@@ -1,0 +1,72 @@
+[
+  {
+    "scenario": "Flutter admin listing with search, filters, pagination, and row actions",
+    "skills": [
+      "frontend-admin-panels",
+      "frontend-listing-screens",
+      "frontend-ui-states",
+      "flutter-listing-screens",
+      "flutter-linting"
+    ]
+  },
+  {
+    "scenario": "Flutter listing generated from Frappe DocType metadata",
+    "skills": [
+      "frontend-listing-screens",
+      "frontend-dynamic-listing-fields",
+      "flutter-listing-screens",
+      "flutter-networking",
+      "flutter-linting"
+    ]
+  },
+  {
+    "scenario": "Frappe endpoint consumed by Flutter or Next.js",
+    "skills": [
+      "frappe-python",
+      "frappe-api-contracts"
+    ]
+  },
+  {
+    "scenario": "Frappe payment or webhook integration that calls an external provider",
+    "skills": [
+      "frappe-python",
+      "frappe-api-contracts",
+      "frappe-async-external-apis"
+    ]
+  },
+  {
+    "scenario": "Next.js form page with client-side lookup data",
+    "skills": [
+      "frontend-device-layout",
+      "frontend-forms",
+      "frontend-ui-states",
+      "nextjs-forms",
+      "nextjs-page-performance"
+    ]
+  },
+  {
+    "scenario": "Frappe-backed listing that updates after a workflow or background job",
+    "skills": [
+      "frontend-listing-screens",
+      "frappe-listing-realtime",
+      "frappe-realtime-updates"
+    ]
+  },
+  {
+    "scenario": "Flutter color and icon settings backed by a Frappe form",
+    "skills": [
+      "frontend-forms",
+      "flutter-forms",
+      "flutter-color-icon-picker",
+      "flutter-linting"
+    ]
+  },
+  {
+    "scenario": "CoreAxis change spanning backend and Flutter with verification",
+    "skills": [
+      "coreaxis-task-workflow",
+      "frappe-python",
+      "flutter-linting"
+    ]
+  }
+]

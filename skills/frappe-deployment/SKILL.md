@@ -119,3 +119,9 @@ Do not add frontend deploy steps unless the user explicitly asks for them.
 - Finish Xealth setup by enabling/starting supervisor and nginx, validating/reloading nginx, setting up SSL with Bench/certbot unless `--skip-ssl` is passed, and checking the site through nginx with `Host: backend.xealth.ca` and HTTPS. The SSL step should skip only when both certificate files exist and the bench nginx config already references the certificate; otherwise pipe `y` into `bench setup lets-encrypt` so Bench can overwrite its generated nginx config after cert issuance. Prefer `--ssl-email EMAIL` for Let's Encrypt registration.
 - Xealth setup must ensure `/home/frappe/frappe-bench/config/supervisor.conf` is linked into `/etc/supervisor/conf.d/frappe-bench.conf` before `supervisorctl reread/update`; otherwise Bench Redis and worker programs are not loaded even when `supervisor` itself is active.
 - Keep reruns idempotent: if `/home/frappe/frappe-bench/apps/xealth` already exists, skip app creation but still check package/site installation status. For future deploy/setup actions, add remote existence or status checks before mutating server state.
+
+## Verification
+
+- Run the deployment in its supported dry-run or guarded mode before mutating a production host.
+- Verify application package state, site installation, migrations, worker services, and nginx status.
+- Verify the target site responds through its intended host and HTTPS configuration.

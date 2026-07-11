@@ -1,6 +1,6 @@
 ---
 name: flutter-linting
-description: Use for all Flutter code changes to follow linting, formatting, analysis, and code-quality rules.
+description: Use when changing Flutter code and linting, formatting, analysis, or code-quality rules apply.
 ---
 
 Follow these linting rules strictly when working on Flutter code.

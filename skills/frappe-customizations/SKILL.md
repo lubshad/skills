@@ -163,3 +163,9 @@ Child doctype `Specialization Role` has a single `Link → Role` field.
 - **Multi-select → always `Table` with a child doctype.** Never use `Table MultiSelect` or `Select` for multi-value fields.
 - **Test patches locally** by running `bench migrate` before committing.
 - **Document the "why"** in a comment at the top of each patch file.
+
+## Verification
+
+- Run `bench --site <site> migrate` after schema, navigation, or patch changes.
+- Verify the changed DocType metadata and permissions in a clean Desk session.
+- Verify each new patch is idempotent and safely skips work already applied.
