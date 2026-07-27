@@ -46,6 +46,7 @@ Follow these utility rules strictly when working on Flutter code.
 
 - Use `flutter_inappwebview` for all webview needs.
 - Also use `flutter_inappwebview` for HTML / rich text editors.
+- When a Flutter dialog or overlay appears above a WebView, iframe, or other platform view, follow the platform-view overlay guard rules in `flutter-dialogs.md`.
 
 ## HTML Rendering
 

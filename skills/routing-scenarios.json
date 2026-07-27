@@ -62,11 +62,30 @@
     ]
   },
   {
-    "scenario": "CoreAxis change spanning backend and Flutter with verification",
+    "scenario": "Flutter dialog or modal displayed above a WebView, iframe, PDF viewer, map, or other platform view",
     "skills": [
-      "coreaxis-task-workflow",
-      "frappe-python",
+      "flutter-dialogs",
+      "flutter-utilities",
+      "flutter-common-widgets",
       "flutter-linting"
+    ]
+  },
+  {
+    "scenario": "Flutter admin profile tab for linked-document preview, download, approval, rejection, revocation, or reset",
+    "skills": [
+      "frontend-admin-detail-pages",
+      "frontend-ui-states",
+      "flutter-document-approval",
+      "flutter-dialogs",
+      "flutter-networking",
+      "frappe-document-approval-flow",
+      "frappe-file-images"
+    ]
+  },
+  {
+    "scenario": "Task not covered by any existing skill, or asked to create/update a workspace skill",
+    "skills": [
+      "skill-updates"
     ]
   }
 ]

@@ -56,3 +56,8 @@ lib/
 - In production/non-debug builds, keep body navigators mounted with an `IndexedStack` so each sidebar item preserves its nested route stack and local widget state while switching sections.
 - In debug builds, mount only the selected body navigator through a small child widget keyed by the selected index so development cycles avoid eagerly building every section.
 - Treat the navigation shell as its own feature (`features/navigation/`).
+
+### Sidebar Mapper
+- The sidebar mapper (`SuperAdminSidebarMapper`) maps `WorkspaceSidebar` items to `NavigationDestinationItem` objects for the Flutter admin nav.
+- **Do not hardcode a specific sidebar name** (e.g. `'Super Admin'`) in the mapper. All Masar admin sidebars (Super Admin, Operational Admin, Federation Admin) share the same DocType/Page targets, so the mapper must accept any valid sidebar.
+- Guard against `null` or empty sidebar input, but do not reject sidebars based on their name.

@@ -12,6 +12,13 @@ flex_color_picker: ^3.8.0   # color picker dialog
 flutter_svg: any             # SVG rendering for icons from sprite sheets
 ```
 
+## References
+
+- [Frappe Icon Assets And Rendering](references/frappe-icon-assets-and-rendering.md): bundled sprite setup, shared renderer, normalization, caching, and fallbacks.
+- [Frappe Color Picker](references/frappe-color-picker.md): hex storage contract, picker field behavior, validation, and icon-color pairing.
+- [Frappe Icon Picker](references/frappe-icon-picker.md): searchable picker dialog, dynamic fields, CRUD, and listing behavior.
+- [Frappe Sidebar Icons](references/frappe-sidebar-icons.md): workspace-sidebar icon pass-through and optional Flutter overrides.
+
 ## Color Picker
 
 ### Trigger Widget
@@ -192,6 +199,8 @@ Each grid tile shows `_IconPreviewBadge` + icon name label. Highlight with borde
 
 ## FrappeIcon Widget (SVG Rendering)
 
+See [Frappe Icon Assets And Rendering](references/frappe-icon-assets-and-rendering.md) for the reusable asset, parsing, and fallback pattern.
+
 ### Icon Name Normalization
 
 Normalize legacy FontAwesome icon names before lookup:
@@ -350,6 +359,10 @@ if (field.fieldType == 'Icon' || field.fieldName.endsWith('_icon')) {
 - Icon picker trigger: use `AppTheme.surface` background, `AppTheme.border` border.
 - Both use `BorderRadius.circular(10)` and `InkWell` for tap feedback.
 - Error text shown below the field with `AppTheme.danger` color.
+
+## Workspace Sidebar Icons
+
+For Frappe-backed navigation, pass the backend icon name through the sidebar model and render it with `FrappeIcon` by default. A Flutter route may explicitly set an `IconData` override when required. See [Frappe Sidebar Icons](references/frappe-sidebar-icons.md).
 
 ## Verification
 

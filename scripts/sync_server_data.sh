@@ -29,11 +29,12 @@ WITH_FILES=1
 SKIP_BACKUP=0
 ADMIN_PASSWORD="admin"
 MARIADB_ROOT_PASSWORD=""
+RETENTION_DAYS="30"
 
 usage() {
   cat <<'USAGE'
 Usage:
-  sync_server_data.sh --remote-host HOST --remote-site SITE --local-site SITE [options]
+  sync_server_data.sh --remote-site SITE --local-site SITE [options]
 
 Sync a remote Frappe site to a local bench site. Downloads the latest remote backup,
 restores it locally, and re-extracts public/private files.
@@ -41,12 +42,12 @@ restores it locally, and re-extracts public/private files.
 Defaults to dry-run. Add --execute to run.
 
 Required:
-  --remote-host HOST        Remote server host/IP
   --remote-site SITE        Remote site name, e.g. example.com
   --local-site SITE         Local site name, e.g. example.localhost
 
 Options:
   --execute                 Run commands instead of printing them
+  --remote-host HOST        Remote server host/IP (default: --remote-site)
   --remote-user USER        Remote SSH login user (default: frappe)
   --ssh-key PATH            SSH private key path (default: <bench_root>/personal)
   --ssh-port PORT           SSH port (default: 22)
@@ -56,11 +57,12 @@ Options:
   --skip-backup             Skip remote backup (use existing latest backup)
   --admin-password PASS     Local admin password for new site (default: admin)
   --mariadb-root-password   Local MariaDB root password (omit to be prompted)
+  --retention-days DAYS     Keep backup files from the last DAYS days (default: 30)
   -h, --help                Show this help
 
 Examples:
-  sync_server_data.sh --remote-host coreaxissolutions.in --remote-site luxeo.coreaxissolutions.in --local-site luxeo.localhost
-  sync_server_data.sh --execute --remote-host masarbackend.conceptiqs.com --remote-site masarbackend.conceptiqs.com --local-site masar.localhost
+  sync_server_data.sh --remote-site luxeo.coreaxissolutions.in --local-site luxeo.localhost
+  sync_server_data.sh --execute --remote-site masarbackend.conceptiqs.com --local-site masar.localhost
 USAGE
 }
 
@@ -147,7 +149,6 @@ ensure_bench_in_path() {
 }
 
 require_values() {
-  [[ -n "$REMOTE_HOST" ]] || fail "--remote-host is required"
   [[ -n "$REMOTE_SITE" ]] || fail "--remote-site is required"
   [[ -n "$LOCAL_SITE" ]] || fail "--local-site is required"
 }
@@ -207,6 +208,10 @@ while [[ $# -gt 0 ]]; do
       MARIADB_ROOT_PASSWORD="${2:-}"
       shift 2
       ;;
+    --retention-days)
+      RETENTION_DAYS="${2:-}"
+      shift 2
+      ;;
     -h|--help)
       usage
       exit 0
@@ -217,7 +222,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -z "$REMOTE_HOST" ]]; then
+  REMOTE_HOST="$REMOTE_SITE"
+fi
+
 require_values
+[[ "$RETENTION_DAYS" =~ ^[1-9][0-9]*$ ]] || fail "--retention-days must be a positive whole number"
 require_local_tools
 
 if [[ -z "$REMOTE_BENCH_PATH" ]]; then
@@ -358,5 +368,14 @@ fi
 
 local_exec "Running migrate on $LOCAL_SITE" "cd $(quote "$LOCAL_BENCH_PATH") && bench --site $(quote "$LOCAL_SITE") migrate"
 local_exec "Clearing cache on $LOCAL_SITE" "cd $(quote "$LOCAL_BENCH_PATH") && bench --site $(quote "$LOCAL_SITE") clear-cache"
+
+# Only prune backups after the selected backup has been restored successfully.
+BACKUP_NAMES="\\( -name '*database.sql.gz' -o -name '*-files.tar' -o -name '*-private-files.tar' -o -name '*-site_config_backup.json' \\)"
+REMOTE_BACKUP_DIR="$REMOTE_BENCH_PATH/sites/$REMOTE_SITE/private/backups"
+REMOTE_CLEANUP_CMD="find $(quote "$REMOTE_BACKUP_DIR") -maxdepth 1 -type f $BACKUP_NAMES ! -newermt $(quote "$RETENTION_DAYS days ago") -delete"
+LOCAL_CLEANUP_CMD="find $(quote "$LOCAL_BACKUP_DIR") -maxdepth 1 -type f $BACKUP_NAMES ! -newermt $(quote "$RETENTION_DAYS days ago") -delete"
+
+remote_shell "Removing remote backup files older than $RETENTION_DAYS days" "$REMOTE_CLEANUP_CMD"
+local_exec "Removing local backup files older than $RETENTION_DAYS days" "$LOCAL_CLEANUP_CMD"
 
 printf '\nDone: %s -> %s synced successfully\n' "$REMOTE_SITE" "$LOCAL_SITE"

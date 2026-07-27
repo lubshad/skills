@@ -81,9 +81,8 @@ Frappe uses **Lucide icons** exclusively. Icon names are kebab-case strings (e.g
 
 - Browse valid names at https://lucide.dev/icons/ — names are exact and case-sensitive; an unknown name renders nothing silently
 - `header_icon` on the sidebar root — pick the broadest concept for the app
-- Every top-level Link item and Section Break **must** have a non-empty `icon`
-- Child items (`"child": 1`) may omit `icon` — they inherit context from their Section Break
-- Do not reuse the same icon for two different top-level items in the same sidebar
+- Every Link item and Section Break **must** have a non-empty, meaningful `icon`, including child items (`"child": 1`).
+- Do not reuse the same icon for different items in the same sidebar unless they represent the same destination.
 - After any icon change, bump `"modified"` so `bench migrate` picks it up
 
 **Common icon mappings:**
@@ -147,18 +146,44 @@ Each entry in `items[]` is one line in the sidebar. Keep fields to only what the
 
 ```json
 {
+  "child": 0,
+  "collapsible": 1,
   "type": "Section Break",
   "label": "Reports",
   "icon": "file-spreadsheet",
   "indent": 1,
+  "keep_closed": 1,
   "link_type": "DocType",
-  "collapsible": 1
+  "show_arrow": 0
 }
 ```
 
-- Use `indent: 1` on children that live under a Section Break.
-- Use `child: 1` on items nested under a Section Break (matches Frappe's existing sidebars).
+- **Do not invert `indent`.** Native Frappe Desk uses `indent: 1` on the collapsible Section Break header. Its nested Link children use `child: 1` with `indent: 0`; `child: 1` is what renders the child indentation.
+- Nested Link items should use the native shape:
+
+```json
+{
+   "child": 1,
+   "collapsible": 1,
+   "icon": "file-spreadsheet",
+   "indent": 0,
+  "keep_closed": 0,
+  "label": "Fixed Asset Register",
+  "link_to": "Fixed Asset Register",
+  "link_type": "Report",
+  "show_arrow": 0,
+  "type": "Link"
+}
+```
+
+- Child icons are required. Use a meaningful, distinct Lucide icon for each child link; do not omit it for the compact native ERPNext Desk appearance.
 - For external URL items, set `link_type: "URL"` and add `"url": "/dashboard/..."`.
+
+## Collapsible Sidebar Groups
+
+Use a Section Break followed immediately by its child links. Keep `keep_closed: 1` on the Section Break when the group should start collapsed. Do not place unrelated items between a Section Break and its children, or Frappe cannot render the group predictably.
+
+Native reference: `apps/erpnext/erpnext/workspace_sidebar/assets.json` uses this exact structure for its Maintenance and Reports groups.
 
 ## Rules for Choosing Sidebar Items
 

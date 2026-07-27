@@ -49,6 +49,12 @@ Screen → BLoC → Repository → Dio (API Client)
 - Send JSON body with `Content-Type: application/json` for method calls.
 - For file uploads, use `FormData` with Dio's multipart support.
 
+## Frappe Inline Images
+
+- In Flutter web/admin apps, render public Frappe `/files/...` URLs and backend-generated signed image URLs without `Authorization` or other custom request headers.
+- Do not pass token headers to `Image.network`, `NetworkImage`, or `CachedNetworkImage` for inline images. Flutter web must use its normal browser `<img>` fallback for these URLs; custom headers force XHR loading, which can trigger CORS failures.
+- Private image APIs must return signed URLs that the browser can load directly. Do not use inline-image headers as a substitute for backend URL normalization.
+
 ## Authenticated Frappe File Opening
 
 - In Flutter web/admin apps, do not open Frappe private file URLs directly with `url_launcher`, `launchUrlString`, anchors, or `window.open`. Those requests do not include the token `Authorization` header and Frappe will treat them as `Guest`.

@@ -25,7 +25,7 @@ Before running or adapting it:
 
 1. Confirm the target OS is Ubuntu/Debian and remote root SSH is available.
 2. Prefer dry-run first; the script defaults to dry-run and requires `--execute` before making remote changes.
-3. Collect or choose these values: host, site name, Administrator password, MariaDB root password, SSH key/port if needed, swap file settings, bench user, branch, bench path, and app repositories.
+3. Collect or choose these values: host, site name, Administrator password, MariaDB root password, Let's Encrypt email, SSH key/port if needed, swap file settings, bench user, branch, bench path, and app repositories.
 4. Run syntax checks after edits:
 
 ```bash
@@ -47,7 +47,7 @@ Use `apps/xealth/setup_server.sh` for Xealth server setup.
 - After server setup, the wrapper checks whether `/home/frappe/frappe-bench/apps/xealth` exists. If it exists, it skips app creation but still checks whether the Python package and site app are installed. If it is missing, it creates a new `xealth` app in the remote bench with `bench new-app xealth --no-git`; it does not clone from GitHub or rsync the local checkout during server setup.
 - Keep Xealth setup idempotent: do not create the app if `apps/xealth` already exists in the remote bench; do not rerun pip install when the package is already installed; do not rerun `install-app`, migrate, or restart when the app is already installed on the site.
 - The wrapper must finish by ensuring production is live: supervisor and nginx enabled/running, nginx config valid/reloaded, SSL configured through Bench/certbot, and the site responding through nginx with the site Host header.
-- SSL setup uses Bench's `setup lets-encrypt` flow. Keep it idempotent: install certbot packages only when missing, configure `/etc/letsencrypt/cli.ini` for non-interactive registration, enable `dns_multitenant`, skip the Bench SSL step only when `/etc/letsencrypt/live/<site>/fullchain.pem` and `privkey.pem` exist and the bench nginx config already references the certificate, then verify HTTPS through nginx. Pipe `y` into `bench setup lets-encrypt` because Bench may still prompt before overwriting `nginx.conf` after cert issuance. Prefer passing `--ssl-email EMAIL`; without it, the wrapper uses certbot's no-email registration mode.
+- SSL setup uses Bench's `setup lets-encrypt` flow. Keep it idempotent: install certbot packages only when missing, configure `/etc/letsencrypt/cli.ini` for non-interactive registration, enable `dns_multitenant`, skip the Bench SSL step only when `/etc/letsencrypt/live/<site>/fullchain.pem` and `privkey.pem` exist and the bench nginx config already references the certificate, then verify HTTPS through nginx. `--ssl-email EMAIL` is required. Pipe `y` into `bench setup lets-encrypt` because Bench may still prompt before overwriting `nginx.conf` after cert issuance.
 - Keep `--skip-xealth-app` available for setup-only runs.
 
 ## Quick Start
@@ -60,6 +60,7 @@ Preview a single-site remote setup:
   --site example.com \
   --admin-password 'change-me' \
   --mariadb-root-password 'change-me' \
+  --ssl-email admin@example.com \
   --swap-size-gb 4
 ```
 
@@ -71,7 +72,8 @@ Execute after reviewing the printed SSH commands:
   --host 203.0.113.10 \
   --site example.com \
   --admin-password 'change-me' \
-  --mariadb-root-password 'change-me'
+  --mariadb-root-password 'change-me' \
+  --ssl-email admin@example.com
 ```
 
 Install additional apps:
@@ -84,6 +86,7 @@ Install additional apps:
   --site example.com \
   --admin-password 'change-me' \
   --mariadb-root-password 'change-me' \
+  --ssl-email admin@example.com \
   --app https://github.com/frappe/erpnext \
   --install-app erpnext
 ```
@@ -96,8 +99,8 @@ Install additional apps:
 - The script checks installed APT packages first and only runs `apt-get update`/`apt-get install` when dependencies are missing.
 - The script creates `/swapfile` with 4GB by default, activates it, and persists it in `/etc/fstab` only when that swap file is not already active/persisted. Use `--swap-size-gb`, `--swap-file`, or `--skip-swap` to change this behavior.
 - The script starts/enables MariaDB and configures the root password from `--mariadb-root-password` before `bench new-site`; if the password already works it skips reconfiguration. Use `--skip-mariadb-config` only when MariaDB is already configured and reachable with that password.
-- Default branch is `develop`, matching current v16-era benches. Use `--frappe-branch version-15` for a v15 server.
-- Default Python is `3.14` and default Node is `24`, matching current Frappe v16/develop installation docs. Use `--python-version 3.13` or compatible alternatives for older branches.
+- Default Frappe version is `16`, resolving to the `version-16` branch. Use `--frappe-version 15` for v15, `--frappe-version develop` for develop, or `--frappe-branch` for a custom branch.
+- Default Python is `3.14` and default Node is `24`, matching Frappe v16. On Ubuntu releases without a matching APT development package, the script uses uv's managed Python instead. Use `--python-version` to select a compatible alternative for another Frappe branch.
 - Before production setup, ensure the uv-installed `frappe-bench` tool Python has `pip` with `python -m ensurepip --upgrade` when needed, install Ansible into that tool environment when missing, and expose `/usr/local/bin/bench` plus `/usr/local/bin/ansible*` symlinks. Bench's production setup invokes nested `bench ...` and `ansible-playbook` subprocesses by command name, so these must be on the system PATH under sudo.
 - The script installs `xvfb`, `libfontconfig`, and `wkhtmltopdf` from the APT repositories by default.
 - Production service setup uses `sudo /home/<bench-user>/.local/bin/bench setup production <bench-user>`, which configures nginx/supervisor in the standard Bench flow without depending on root's sudo PATH. Run production setup and start/reload supervisor services before `bench migrate`, because Frappe migrate requires `redis_cache` to be running. When checking supervisor state from the bench user, use `sudo supervisorctl status` so the guard sees the root-managed service groups. Enable supervisor/nginx with systemd, set up SSL with `bench setup lets-encrypt <site> --non-interactive`, and verify the site through nginx before reporting success.

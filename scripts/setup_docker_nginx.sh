@@ -9,6 +9,7 @@ SSH_KEY="${SSH_KEY:-personal}"
 APP_NAME="${APP_NAME:-}"
 SERVER_NAME="${SERVER_NAME:-}"
 APP_PORT="${APP_PORT:-}"
+DOCUMENT_ROOT="${DOCUMENT_ROOT:-}"
 SSL_EMAIL="${SSL_EMAIL:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,9 +28,9 @@ print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 
 usage() {
   cat <<EOF
-Usage: $0 --host HOST --app-name NAME --server-name NAME --app-port PORT [OPTIONS]
+Usage: $0 --host HOST --app-name NAME --server-name NAME (--app-port PORT | --document-root PATH) [OPTIONS]
 
-Set up nginx reverse proxy for a Docker-based Docker app.
+Set up nginx for a Docker app or a static site.
 If --ssl-email is provided, the script also installs Certbot and configures
 Let's Encrypt SSL for every domain in --server-name.
 
@@ -38,6 +39,7 @@ Required:
   --app-name NAME         Nginx site name, e.g. coreaxis
   --server-name NAME      Nginx server_name value, e.g. "example.com www.example.com"
   --app-port PORT         Local Docker host port nginx proxies to, e.g. 3100
+  --document-root PATH    Static site directory nginx serves directly, e.g. /var/www/zeronic
 
 Options:
   --ssh-user USER         Remote SSH login user (default: $SERVER_USER)
@@ -53,6 +55,7 @@ Options:
 Examples:
   $0 --host coreaxissolutions.in --app-name coreaxis --server-name "coreaxissolutions.in www.coreaxissolutions.in" --app-port 3100 --ssl-email admin@coreaxissolutions.in --ssh-key personal
   $0 --host coreaxissolutions.in --app-name masarnext --server-name masar.example.com --app-port 3200
+  $0 --host 203.0.113.10 --app-name zeronic --server-name "zeronic.app www.zeronic.app" --document-root /var/www/zeronic --ssl-email admin@zeronic.app --ssh-user dockeruser --ssh-key personal
 EOF
 }
 
@@ -100,10 +103,32 @@ ssh_target() {
 remote_privileged() {
   local command="$1"
   ssh -i "$SSH_KEY" -p "$SERVER_PORT" "$(ssh_target)" \
-    "if [ \"\$(id -u)\" -eq 0 ]; then bash -lc $(printf '%q' "$command"); else sudo bash -lc $(printf '%q' "$command"); fi"
+    "if [ \"\$(id -u)\" -eq 0 ]; then bash -lc $(printf '%q' "$command"); elif sudo -n true >/dev/null 2>&1; then sudo -n bash -lc $(printf '%q' "$command"); else echo 'Passwordless sudo is required for nginx setup. Connect as root or grant this user NOPASSWD sudo access.' >&2; exit 1; fi"
 }
 
 nginx_config() {
+  if [[ -n "$DOCUMENT_ROOT" ]]; then
+    cat <<EOF
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $SERVER_NAME;
+
+    root $DOCUMENT_ROOT;
+    index index.html;
+    client_max_body_size 25m;
+
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    access_log /var/log/nginx/${APP_NAME}.access.log;
+    error_log /var/log/nginx/${APP_NAME}.error.log;
+}
+EOF
+    return
+  fi
+
   cat <<EOF
 server {
     listen 80;
@@ -166,6 +191,10 @@ while [[ $# -gt 0 ]]; do
       APP_PORT="${2:-}"
       shift 2
       ;;
+    --document-root)
+      DOCUMENT_ROOT="${2:-}"
+      shift 2
+      ;;
     --ssh-user)
       SERVER_USER="${2:-}"
       shift 2
@@ -213,7 +242,12 @@ done
 
 if [[ "$CHECK_ONLY" -eq 0 && "$RELOAD_ONLY" -eq 0 && "$TEST_ONLY" -eq 0 && "$REMOVE_CONFIG" -eq 0 ]]; then
   [[ -n "$SERVER_NAME" ]] || fail "--server-name is required"
-  [[ -n "$APP_PORT" ]] || fail "--app-port is required"
+  if [[ -n "$APP_PORT" && -n "$DOCUMENT_ROOT" ]]; then
+    fail "Use either --app-port or --document-root, not both"
+  fi
+  if [[ -z "$APP_PORT" && -z "$DOCUMENT_ROOT" ]]; then
+    fail "Either --app-port or --document-root is required"
+  fi
 fi
 
 SSH_KEY="$(resolve_path "$SSH_KEY")"
@@ -250,7 +284,11 @@ if [[ "$REMOVE_CONFIG" -eq 1 ]]; then
   exit 0
 fi
 
-print_status "Setting up nginx for $SERVER_NAME -> 127.0.0.1:$APP_PORT on $SERVER_HOST..."
+if [[ -n "$DOCUMENT_ROOT" ]]; then
+  print_status "Setting up nginx to serve $DOCUMENT_ROOT for $SERVER_NAME on $SERVER_HOST..."
+else
+  print_status "Setting up nginx for $SERVER_NAME -> 127.0.0.1:$APP_PORT on $SERVER_HOST..."
+fi
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
@@ -258,10 +296,18 @@ nginx_config > "$tmp_dir/$APP_NAME.nginx.conf"
 
 remote_privileged "if ! command -v nginx >/dev/null 2>&1; then apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y nginx; fi; systemctl enable nginx; systemctl start nginx; install -d /etc/nginx/sites-available /etc/nginx/sites-enabled"
 
+if [[ -n "$DOCUMENT_ROOT" ]]; then
+  remote_privileged "install -d -o '$SERVER_USER' -g '$SERVER_USER' '$DOCUMENT_ROOT'"
+fi
+
 print_status "Uploading nginx config..."
 scp -i "$SSH_KEY" -P "$SERVER_PORT" "$tmp_dir/$APP_NAME.nginx.conf" "$(ssh_target):/tmp/$APP_NAME.nginx.conf"
 
 remote_privileged "mv '/tmp/$APP_NAME.nginx.conf' '$NGINX_CONFIG_FILE' && chown root:root '$NGINX_CONFIG_FILE' && chmod 644 '$NGINX_CONFIG_FILE' && ln -sfn '$NGINX_CONFIG_FILE' '$NGINX_CONFIG_ENABLED' && nginx -t && systemctl reload nginx"
+
+if [[ -n "$DOCUMENT_ROOT" ]] && ! remote_privileged "test -f '$DOCUMENT_ROOT/index.html'"; then
+  print_warning "Static document root has no index.html yet: $DOCUMENT_ROOT. Deploy the built site before serving this domain."
+fi
 
 if [[ -n "$SSL_EMAIL" ]]; then
   print_status "Installing Certbot and configuring SSL..."

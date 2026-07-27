@@ -15,7 +15,7 @@ Use rem-based tokens from `globals.css` for layout, spacing, radii, and typograp
 |-------|-------|-----------------|-------------------------|
 | Mobile | <=767px | 390 | `clamp(14px, 100vw * 16 / 390, 20px)` |
 | Tablet | 768-1023px | 820 | `clamp(15px, 100vw * 16 / 820, 20px)` |
-| Desktop | >=1024px | 1440 | `clamp(14px, 100vw * 16 / 1440, 22px)` |
+| Desktop | >=1024px | 1440 | `16px` |
 
 These rules live in `src/app/globals.css` under proportional scaling. Do not duplicate them elsewhere.
 
@@ -40,4 +40,4 @@ Check touched pages at:
 - Tablet: 768, 820, 1000.
 - Mobile: 360, 390, 414.
 
-Within a device class, layouts should scale proportionally. Reflow is expected only across class boundaries or when needed for readability.
+Tablet and mobile layouts scale proportionally within their device classes. Desktop uses a fixed root size so wide screens gain usable space instead of enlarging the entire interface. Reflow is expected only across class boundaries or when needed for readability.

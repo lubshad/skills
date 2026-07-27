@@ -50,6 +50,8 @@ Follow these guidelines when building a document verification and admin approval
 
 This skill includes reference files based on the proven `Masar Document` implementation. Use them as structural templates when building a similar flow in another app.
 
+For the Flutter admin listing, preview, and review-action adapter, read `flutter-document-approval.md`.
+
 -   [DocType Schema Pattern](references/generic-document-doctype.md)
 -   [API Implementation Pattern](references/generic-document-api.md)
 -   [Desk UI Approval Pattern](references/generic-document-desk-approval.md)

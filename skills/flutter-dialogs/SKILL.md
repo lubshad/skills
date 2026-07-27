@@ -70,6 +70,18 @@ showDialog(
 - Dispatch through the captured BLoC after closing the dialog.
 - Do not call `dialogContext.read<MyBloc>()` unless the provider is intentionally above the dialog route and this has been verified.
 
+## Dialogs Above Platform Views
+
+On Flutter web, a platform view can receive pointer input and browser focus through a Flutter dialog. This includes `HtmlElementView`, iframe-based PDF previews, WebViews, maps, and other embedded native/HTML views.
+
+- When a dialog, menu, or modal overlays a platform view, wrap its content with the app's shared `WebViewOverlayGuard`.
+- The guard must use `PointerInterceptor` to block pointer events from reaching the platform view, blur the active browser element, and move focus into the overlay after the first frame.
+- Keep the underlying platform view mounted. Do not remove or recreate it solely to show a dialog, as this can reload its content or lose scroll/viewer state.
+- Use the guard only when an overlay can appear above a platform view; ordinary Flutter-only dialogs do not need it.
+- Place reusable guards in the app's core widget directory and follow the platform-specific reference for the concrete import path and usage.
+
+See `references/masar-admin-webview-overlay.md` for the Masar Admin implementation.
+
 ## Navigator Rules
 
 - Dialog dismiss: `Navigator.of(dialogContext).pop()`.

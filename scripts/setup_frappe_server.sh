@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_SSH_KEY="$SCRIPT_DIR/../../personal"
+
 EXECUTE=0
 SSH_USER="root"
 SSH_HOST=""
 SSH_PORT="22"
-SSH_KEY=""
+SSH_KEY="$DEFAULT_SSH_KEY"
 BENCH_USER="frappe"
 BENCH_DIR="/home/frappe/frappe-bench"
-FRAPPE_BRANCH="develop"
+FRAPPE_VERSION="16"
+FRAPPE_BRANCH=""
+DEFAULT_APP_BRANCH="version-16"
 PYTHON_VERSION="3.14"
 NODE_VERSION="24"
 SWAP_FILE="/swapfile"
@@ -23,49 +28,53 @@ CONFIGURE_MARIADB=1
 SETUP_SSL=0
 SSL_EMAIL=""
 APPS=()
+APP_BRANCHES=()
 INSTALL_APPS=()
-APT_PACKAGES="build-essential certbot curl git cron libfontconfig libffi-dev libjpeg-dev liblcms2-dev libldap2-dev libmariadb-dev libpq-dev libsasl2-dev libssl-dev mariadb-client mariadb-server nginx pkg-config redis-server sudo supervisor util-linux xvfb zlib1g-dev python3-certbot-nginx wkhtmltopdf"
+APT_PACKAGES="build-essential certbot curl git cron libfontconfig libffi-dev libjpeg-dev liblcms2-dev libldap2-dev libmariadb-dev libpq-dev libsasl2-dev libssl-dev mariadb-client mariadb-server nginx pkg-config redis-server sudo supervisor util-linux xvfb zlib1g-dev python3-certbot-nginx"
 
 usage() {
   cat <<'USAGE'
 Usage:
-  setup_frappe_server.sh --host HOST --site SITE --admin-password PASS --mariadb-root-password PASS [options]
+  setup_frappe_server.sh --site SITE --admin-password PASS --mariadb-root-password PASS [options]
 
 Run this script from your local machine. It SSHes into the remote server, creates the
 remote frappe Linux user if needed, and performs a full Frappe Bench setup there.
+The remote server must run Ubuntu or Debian.
 
 Defaults to dry-run. Add --execute to run remote commands.
 
 Required:
-  --host HOST                       Remote server host/IP
   --site SITE                       Frappe site name, e.g. example.com
   --admin-password PASS             Frappe Administrator password for new site
   --mariadb-root-password PASS      MariaDB root password used by bench new-site
+  --ssl-email EMAIL                 Let's Encrypt registration email
 
 Options:
   --execute                         Run commands instead of printing them
+  --host HOST                       Remote server host/IP (default: --site value)
   --ssh-user USER                   Remote SSH login user (default: root)
-  --ssh-key PATH                    SSH private key path
+  --ssh-key PATH                    SSH private key path (default: <bench>/personal)
   --ssh-port PORT                   SSH port (default: 22)
   --bench-user USER                 Remote Linux user that owns the bench (default: frappe)
   --bench-dir PATH                  Remote bench path (default: /home/frappe/frappe-bench)
-  --frappe-branch BRANCH            Frappe branch for bench init (default: develop)
+  --frappe-version VERSION          Frappe major version or develop (default: 16)
+  --frappe-branch BRANCH            Custom Frappe branch for bench init (overrides --frappe-version)
   --python-version VERSION          uv-managed Python version (default: 3.14)
   --node-version VERSION            nvm-managed Node version (default: 24)
   --swap-file PATH                  Remote swap file path (default: /swapfile)
   --swap-size-gb SIZE               Remote swap size in GB (default: 4)
   --skip-swap                       Skip remote swap file setup
   --skip-mariadb-config             Skip MariaDB service/root-password setup
-  --app REPO                        bench get-app argument; repeatable
+  --app REPO                        bench get-app repository; repeatable (default branch: version-16)
+  --app-branch BRANCH               Override branch for the immediately preceding --app
   --install-app APP                 App name to install on site; repeatable
   --skip-production                 Skip Bench production setup
   --skip-scheduler                  Skip bench enable-scheduler
-  --ssl-email EMAIL                 Set up Let's Encrypt SSL for the site (requires valid domain in --site)
   -h, --help                        Show this help
 
 Examples:
-  setup_frappe_server.sh --host 203.0.113.10 --site example.com --admin-password x --mariadb-root-password y
-  setup_frappe_server.sh --execute --host 203.0.113.10 --site example.com --admin-password x --mariadb-root-password y --app erpnext --install-app erpnext
+  setup_frappe_server.sh --site example.com --frappe-version 16 --ssl-email admin@example.com --admin-password x --mariadb-root-password y
+  setup_frappe_server.sh --execute --host 203.0.113.10 --site example.com --admin-password x --mariadb-root-password y --app https://github.com/frappe/erpnext --app-branch version-16 --install-app erpnext
 USAGE
 }
 
@@ -92,36 +101,49 @@ ssh_args() {
 
 remote_shell() {
   local command="$1"
+  local strict_command="set -euo pipefail; $command"
   local target
   target="$(ssh_target)"
 
   if [[ "$EXECUTE" -eq 1 ]]; then
-    printf '+ ssh %s%s %q\n' "$(ssh_args)" "$target" "bash -lc $(quote "$command")"
+    printf '+ ssh %s%s %q\n' "$(ssh_args)" "$target" "bash -lc $(quote "$strict_command")"
     local args=(-p "$SSH_PORT")
     if [[ -n "$SSH_KEY" ]]; then
       args+=(-i "$SSH_KEY")
     fi
-    ssh "${args[@]}" "$target" "bash -lc $(quote "$command")"
+    ssh "${args[@]}" "$target" "bash -lc $(quote "$strict_command")"
   else
-    printf '[dry-run] ssh %s%s %q\n' "$(ssh_args)" "$target" "bash -lc $(quote "$command")"
+    printf '[dry-run] ssh %s%s %q\n' "$(ssh_args)" "$target" "bash -lc $(quote "$strict_command")"
   fi
 }
 
 remote_privileged() {
   local command="$1"
-  remote_shell "if [ \"\$(id -u)\" -eq 0 ]; then bash -lc $(quote "$command"); else sudo bash -lc $(quote "$command"); fi"
+  local strict_command="set -euo pipefail; $command"
+  remote_shell "if [ \"\$(id -u)\" -eq 0 ]; then bash -lc $(quote "$strict_command"); else sudo bash -lc $(quote "$strict_command"); fi"
 }
 
 remote_as_bench_user() {
   local command="$1"
   local bench_home
   bench_home="/home/$BENCH_USER"
-  remote_privileged "install -d -o $(quote "$BENCH_USER") -g $(quote "$BENCH_USER") $(quote "$bench_home/.config") $(quote "$bench_home/.cache") $(quote "$bench_home/.local/bin")"
+  local remote_command
+  remote_command="set -euo pipefail; cd $bench_home && $command"
   local args=(-p "$SSH_PORT")
   if [[ -n "$SSH_KEY" ]]; then
     args+=(-i "$SSH_KEY")
   fi
-  ssh "${args[@]}" "${BENCH_USER}@${SSH_HOST}" "bash -lc $(quote "cd $bench_home && $command")"
+  if [[ "$EXECUTE" -eq 1 ]]; then
+    ssh "${args[@]}" "${BENCH_USER}@${SSH_HOST}" "bash -lc $(quote "$remote_command")"
+  else
+    printf '[dry-run] ssh %s%s %q\n' "$(ssh_args)" "${BENCH_USER}@${SSH_HOST}" "bash -lc $(quote "$remote_command")"
+  fi
+}
+
+remote_as_bench_user_privileged() {
+  local command="$1"
+  local strict_command="set -euo pipefail; $command"
+  remote_as_bench_user "sudo bash -lc $(quote "$strict_command")"
 }
 
 apt_install_command() {
@@ -144,6 +166,64 @@ fi
 EOF
 }
 
+python_dev_install_command() {
+  local package="python${PYTHON_VERSION}-dev"
+
+  cat <<EOF
+if dpkg -s $(quote "$package") >/dev/null 2>&1; then
+  printf '%s already installed.\n' $(quote "$package");
+else
+  candidate="\$(apt-cache policy $(quote "$package") | awk '/Candidate:/ {print \$2}')";
+  if [ -n "\$candidate" ] && [ "\$candidate" != "(none)" ]; then
+    apt-get update;
+    DEBIAN_FRONTEND=noninteractive apt-get install -y $(quote "$package");
+  else
+    printf '%s is unavailable from APT; using uv-managed Python instead.\n' $(quote "$package");
+  fi
+fi
+EOF
+}
+
+wkhtmltopdf_install_command() {
+  cat <<'EOF'
+if command -v wkhtmltopdf >/dev/null 2>&1; then
+  printf 'wkhtmltopdf already installed.\n'
+else
+  candidate="$(apt-cache policy wkhtmltopdf | awk '/Candidate:/ {print $2}')"
+  if [ -n "$candidate" ] && [ "$candidate" != "(none)" ]; then
+    DEBIAN_FRONTEND=noninteractive apt-get install -y wkhtmltopdf
+  else
+    printf 'wkhtmltopdf is unavailable from the configured APT repositories; continuing without PDF generation support.\n' >&2
+  fi
+fi
+EOF
+}
+
+os_preflight_command() {
+  cat <<'EOF'
+if ! command -v apt-get >/dev/null 2>&1; then
+  if [ -r /etc/os-release ]; then
+    . /etc/os-release
+    printf 'Unsupported server OS: %s. This setup script requires Ubuntu or Debian.\n' "${PRETTY_NAME:-unknown}" >&2
+  else
+    printf 'Unsupported server OS: apt-get is required by this setup script.\n' >&2
+  fi
+  exit 1
+fi
+
+if [ -r /etc/os-release ]; then
+  . /etc/os-release
+  case "$ID" in
+    ubuntu|debian) ;;
+    *)
+      printf 'Unsupported server OS: %s. This setup script requires Ubuntu or Debian.\n' "${PRETTY_NAME:-unknown}" >&2
+      exit 1
+      ;;
+  esac
+fi
+EOF
+}
+
 bench_user_env() {
   printf 'export PATH="$HOME/.local/bin:$PATH"; NVM_DIR=""; for _d in "$HOME/.nvm" "$HOME/.config/nvm"; do if [ -s "$_d/nvm.sh" ]; then NVM_DIR="$_d"; break; fi; done; if [ -z "$NVM_DIR" ]; then echo "nvm is not installed" >&2; exit 1; fi; export NVM_DIR; . "$NVM_DIR/nvm.sh"; %s' "$1"
 }
@@ -158,14 +238,13 @@ cd ${bench_dir_quoted};
 
 bench config dns_multitenant on;
 
-rm -f config/nginx.conf config/supervisor.conf;
+printf 'email = %s\nagree-tos = true\nnon-interactive = true\n' ${email_quoted} | sudo tee /etc/letsencrypt/cli.ini >/dev/null;
 
-if [ -f /etc/letsencrypt/configs/${site_quoted}.cfg ]; then
-  sudo bench setup lets-encrypt ${site_quoted} --non-interactive;
-  printf 'Let\\'s Encrypt SSL renewed for %s via bench.\n' ${site_quoted};
+if [ -f /etc/letsencrypt/live/${site_quoted}/fullchain.pem ] && [ -f /etc/letsencrypt/live/${site_quoted}/privkey.pem ] && grep -Fq /etc/letsencrypt/live/${site_quoted}/fullchain.pem config/nginx.conf; then
+  printf "Let's Encrypt SSL is already configured for %s.\n" ${site_quoted};
 else
-  printf 'y\n%s\n' '${email_quoted}' | sudo bench setup lets-encrypt ${site_quoted};
-  printf 'Let\\'s Encrypt SSL configured for %s via bench.\n' ${site_quoted};
+  printf 'y\ny\n' | sudo bench setup lets-encrypt ${site_quoted};
+  printf "Let's Encrypt SSL configured for %s via bench.\n" ${site_quoted};
 fi
 EOF
 }
@@ -197,6 +276,12 @@ if [ -f $(quote "$BENCH_DIR/config/nginx.conf") ]; then
   if command -v nginx >/dev/null 2>&1; then
     systemctl is-enabled --quiet nginx || systemctl enable nginx;
     systemctl is-active --quiet nginx || systemctl start nginx;
+    nginx_error="\$(nginx -t 2>&1 || true)";
+    if [[ "\$nginx_error" == *'unknown log format "main"'* ]]; then
+      cat > /etc/nginx/conf.d/00-frappe-log-format.conf <<'NGINX_LOG_FORMAT'
+log_format main '\$remote_addr - \$remote_user [\$time_local] "\$request" \$status \$body_bytes_sent';
+NGINX_LOG_FORMAT
+    fi;
     nginx -t && systemctl reload nginx;
   else
     printf 'nginx not available; skipping nginx reload.\n';
@@ -224,10 +309,13 @@ production_health_check_command() {
 set -e;
 systemctl is-active --quiet supervisor;
 systemctl is-active --quiet nginx;
+supervisorctl status | awk '/node-socketio/ && \$2 == "RUNNING" {found=1} END {exit found ? 0 : 1}';
+if command -v ss >/dev/null 2>&1; then ss -lnt | awk '\$4 ~ /:9000\$/ {found=1} END {exit found ? 0 : 1}'; fi;
 if command -v curl >/dev/null 2>&1; then
   curl -fsS -H $(quote "Host: $SITE_NAME") http://127.0.0.1/ >/dev/null;
+  curl -fsS -H $(quote "Host: $SITE_NAME") 'http://127.0.0.1/socket.io/?EIO=4&transport=polling' >/dev/null;
 fi;
-printf 'Production services are running and %s responds through nginx.\n' $(quote "$SITE_NAME")
+printf 'Production services, Socket.IO, and %s are healthy through nginx.\n' $(quote "$SITE_NAME")
 EOF
 }
 
@@ -286,7 +374,7 @@ mariadb_setup_command() {
   cat <<EOF
 systemctl is-enabled --quiet mariadb || systemctl enable mariadb;
 systemctl is-active --quiet mariadb || systemctl start mariadb;
-if mysql -uroot --password=${root_password_quoted} -e 'SELECT 1' >/dev/null 2>&1; then
+if mysql --protocol=TCP -h127.0.0.1 -uroot --password=${root_password_quoted} -e 'SELECT 1' >/dev/null 2>&1; then
   printf 'MariaDB root password already configured.\n';
 elif mysql -uroot -e 'SELECT 1' >/dev/null 2>&1; then
   mysql -uroot <<SQL
@@ -313,14 +401,33 @@ require_local_tools() {
 }
 
 require_values() {
-  [[ -n "$SSH_HOST" ]] || fail "--host is required"
   [[ -n "$SITE_NAME" ]] || fail "--site is required"
+  SSH_HOST="${SSH_HOST:-$SITE_NAME}"
   [[ -n "$ADMIN_PASSWORD" ]] || fail "--admin-password is required"
   [[ -n "$MARIADB_ROOT_PASSWORD" ]] || fail "--mariadb-root-password is required"
+  [[ -n "$SSL_EMAIL" ]] || fail "--ssl-email is required"
   [[ "$SWAP_SIZE_GB" =~ ^[1-9][0-9]*$ ]] || fail "--swap-size-gb must be a positive integer"
   [[ "$BENCH_DIR" == "/home/$BENCH_USER/"* || "$BENCH_DIR" == "/home/$BENCH_USER" ]] || {
     printf 'Warning: bench dir is outside /home/%s; verify ownership and service paths.\n' "$BENCH_USER" >&2
   }
+}
+
+resolve_frappe_branch() {
+  if [[ -n "$FRAPPE_BRANCH" ]]; then
+    return
+  fi
+
+  case "$FRAPPE_VERSION" in
+    develop)
+      FRAPPE_BRANCH="develop"
+      ;;
+    [1-9]|[1-9][0-9]*)
+      FRAPPE_BRANCH="version-$FRAPPE_VERSION"
+      ;;
+    *)
+      fail "--frappe-version must be a major version such as 16, or develop"
+      ;;
+  esac
 }
 
 while [[ $# -gt 0 ]]; do
@@ -370,6 +477,10 @@ while [[ $# -gt 0 ]]; do
       FRAPPE_BRANCH="${2:-}"
       shift 2
       ;;
+    --frappe-version)
+      FRAPPE_VERSION="${2:-}"
+      shift 2
+      ;;
     --python-version)
       PYTHON_VERSION="${2:-}"
       shift 2
@@ -396,6 +507,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --app)
       APPS+=("${2:-}")
+      APP_BRANCHES+=("$DEFAULT_APP_BRANCH")
+      shift 2
+      ;;
+    --app-branch)
+      [[ "${#APPS[@]}" -gt 0 ]] || fail "--app-branch must follow --app"
+      APP_BRANCHES[$(( ${#APP_BRANCHES[@]} - 1 ))]="${2:-}"
       shift 2
       ;;
     --install-app)
@@ -425,14 +542,21 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+resolve_frappe_branch
 require_values
 require_local_tools
+
+printf 'Using Frappe branch: %s\n' "$FRAPPE_BRANCH"
 
 if [[ "$EXECUTE" -eq 0 ]]; then
   printf 'Dry-run mode. Re-run with --execute after reviewing remote SSH commands.\n'
 fi
 
+printf 'Phase 1/3: bootstrap Ubuntu services and the %s user.\n' "$BENCH_USER"
+remote_privileged "$(os_preflight_command)"
 remote_privileged "$(apt_install_command)"
+remote_privileged "$(python_dev_install_command)"
+remote_privileged "$(wkhtmltopdf_install_command)"
 
 if [[ "$SETUP_SWAP" -eq 1 ]]; then
   remote_privileged "$(swap_setup_command)"
@@ -448,36 +572,49 @@ remote_privileged "if id -nG $(quote "$BENCH_USER") | tr ' ' '\n' | grep -Fxq su
 remote_privileged "if [ \"\$(cat /etc/sudoers.d/$(quote "$BENCH_USER") 2>/dev/null || true)\" != '$(quote "$BENCH_USER") ALL=(ALL) NOPASSWD:ALL' ]; then printf '%s\n' '$(quote "$BENCH_USER") ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/$(quote "$BENCH_USER") && chmod 0440 /etc/sudoers.d/$(quote "$BENCH_USER"); else printf 'Sudoers entry already configured for %s.\n' $(quote "$BENCH_USER"); fi"
 remote_privileged "$(copy_authorized_keys_command)"
 remote_privileged "install -d -o $(quote "$BENCH_USER") -g $(quote "$BENCH_USER") $(quote "$(dirname "$BENCH_DIR")")"
+remote_privileged "install -d -o $(quote "$BENCH_USER") -g $(quote "$BENCH_USER") $(quote "/home/$BENCH_USER/.config") $(quote "/home/$BENCH_USER/.cache") $(quote "/home/$BENCH_USER/.local") $(quote "/home/$BENCH_USER/.local/bin") $(quote "/home/$BENCH_USER/.local/share"); chown -R $(quote "$BENCH_USER"):$(quote "$BENCH_USER") $(quote "/home/$BENCH_USER/.config") $(quote "/home/$BENCH_USER/.cache") $(quote "/home/$BENCH_USER/.local")"
 
+printf 'Phase 2/3: install and configure Frappe as %s.\n' "$BENCH_USER"
+remote_as_bench_user 'for directory in "$HOME/.config" "$HOME/.cache" "$HOME/.local" "$HOME/.local/bin" "$HOME/.local/share"; do test -w "$directory"; done'
 remote_as_bench_user "command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh"
 remote_as_bench_user "test -s \"\$HOME/.nvm/nvm.sh\" || curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash"
-remote_as_bench_user "$(bench_user_env "uv python find $(quote "$PYTHON_VERSION") >/dev/null 2>&1 || uv python install $(quote "$PYTHON_VERSION") --default")"
+remote_as_bench_user "$(bench_user_env "uv python install $(quote "$PYTHON_VERSION") --default")"
 remote_as_bench_user "$(bench_user_env "nvm version $(quote "$NODE_VERSION") >/dev/null 2>&1 || nvm install $(quote "$NODE_VERSION")")"
 remote_as_bench_user "$(bench_user_env "command -v yarn >/dev/null 2>&1 || npm install -g yarn")"
+remote_as_bench_user "$(bench_user_env 'node_bin="$(dirname "$(command -v node)")"; for executable in node npm npx yarn; do if [ -x "$node_bin/$executable" ]; then sudo ln -sfn "$node_bin/$executable" "/usr/local/bin/$executable"; fi; done; sudo test -x /usr/local/bin/node')"
 remote_as_bench_user "$(bench_user_env "command -v bench >/dev/null 2>&1 || uv tool install frappe-bench")"
-remote_as_bench_user "bench_python=/home/$(quote "$BENCH_USER")/.local/share/uv/tools/frappe-bench/bin/python; if [ -x \"\$bench_python\" ] && ! \"\$bench_python\" -m pip --version >/dev/null 2>&1; then \"\$bench_python\" -m ensurepip --upgrade; else printf 'Bench tool Python pip already available.\\n'; fi"
-remote_privileged "bench_python=/home/$(quote "$BENCH_USER")/.local/share/uv/tools/frappe-bench/bin/python; if [ -x \"\$bench_python\" ]; then \"\$bench_python\" -m pip show ansible >/dev/null 2>&1 || \"\$bench_python\" -m pip install ansible; else printf 'Bench tool Python missing at %s.\\n' \"\$bench_python\" >&2; exit 1; fi"
-remote_privileged "bench_tool_bin=/home/$(quote "$BENCH_USER")/.local/share/uv/tools/frappe-bench/bin; if [ -x /home/$(quote "$BENCH_USER")/.local/bin/bench ]; then ln -sfn /home/$(quote "$BENCH_USER")/.local/bin/bench /usr/local/bin/bench; else printf 'Bench executable missing at /home/%s/.local/bin/bench.\\n' $(quote "$BENCH_USER") >&2; exit 1; fi; if [ -d \"\$bench_tool_bin\" ]; then for executable in \"\$bench_tool_bin\"/ansible*; do [ -x \"\$executable\" ] && ln -sfn \"\$executable\" \"/usr/local/bin/\$(basename \"\$executable\")\"; done; fi"
+remote_as_bench_user "$(bench_user_env "command -v ansible-playbook >/dev/null 2>&1 || uv tool install ansible-core")"
+remote_as_bench_user_privileged "if [ -x /home/$(quote "$BENCH_USER")/.local/bin/bench ]; then ln -sfn /home/$(quote "$BENCH_USER")/.local/bin/bench /usr/local/bin/bench; else printf 'Bench executable missing at /home/%s/.local/bin/bench.\\n' $(quote "$BENCH_USER") >&2; exit 1; fi; for executable in /home/$(quote "$BENCH_USER")/.local/bin/ansible*; do [ -x \"\$executable\" ] && ln -sfn \"\$executable\" \"/usr/local/bin/\$(basename \"\$executable\")\"; done"
+remote_as_bench_user_privileged "for collection in community.general ansible.posix; do ansible-galaxy collection list \"\$collection\" | grep -Fq \"\$collection\" || ansible-galaxy collection install \"\$collection\" --collections-path /usr/share/ansible/collections; done"
 
-remote_as_bench_user "if [ ! -d $(quote "$BENCH_DIR") ]; then $(bench_user_env "bench init --frappe-branch $(quote "$FRAPPE_BRANCH") --python $(quote "$PYTHON_VERSION") $(quote "$BENCH_DIR")"); else printf 'Bench directory exists: %s\n' $(quote "$BENCH_DIR"); fi"
+remote_as_bench_user "$(bench_user_env "if [ ! -d $(quote "$BENCH_DIR") ]; then bench init --frappe-branch $(quote "$FRAPPE_BRANCH") --python $(quote "$PYTHON_VERSION") $(quote "$BENCH_DIR"); elif [ -d $(quote "$BENCH_DIR/apps/frappe") ] && [ -x $(quote "$BENCH_DIR/env/bin/python") ]; then if [ ! -f $(quote "$BENCH_DIR/sites/apps.txt") ] || ! $(quote "$BENCH_DIR/env/bin/python") -c 'import frappe' >/dev/null 2>&1; then printf 'Repairing the partial Frappe environment.\\n'; cd $(quote "$BENCH_DIR"); if [ ! -f sites/apps.txt ]; then printf 'frappe\\n' > sites/apps.txt; fi; uv pip install --quiet -e apps/frappe --python env/bin/python; else printf 'Bench directory exists: %s\\n' $(quote "$BENCH_DIR"); fi; else printf 'Partial bench directory at %s cannot be repaired automatically.\\n' $(quote "$BENCH_DIR") >&2; exit 1; fi")"
+remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); if [ ! -d apps/frappe/node_modules ]; then bench setup requirements; fi; if [ ! -f sites/assets/assets.json ]; then bench build; fi")"
 
-for app in "${APPS[@]+"${APPS[@]}"}"; do
+for app_index in "${!APPS[@]}"; do
+  app="${APPS[$app_index]}"
+  app_branch="${APP_BRANCHES[$app_index]}"
   app_name="$(basename "$app" .git)"
-  remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); if [ -d apps/$(quote "$app_name") ]; then printf 'App %s already exists; skipping get-app.\\n' $(quote "$app_name"); else bench get-app $(quote "$app"); fi")"
+  if [[ -n "$app_branch" ]]; then
+    remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); if [ -d apps/$(quote "$app_name") ]; then printf 'App %s already exists; skipping get-app.\\n' $(quote "$app_name"); else bench get-app --branch $(quote "$app_branch") $(quote "$app"); fi")"
+  else
+    remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); if [ -d apps/$(quote "$app_name") ]; then printf 'App %s already exists; skipping get-app.\\n' $(quote "$app_name"); else bench get-app $(quote "$app"); fi")"
+  fi
 done
 
 remote_as_bench_user "if [ ! -d $(quote "$BENCH_DIR/sites/$SITE_NAME") ]; then $(bench_user_env "cd $(quote "$BENCH_DIR"); bench new-site $(quote "$SITE_NAME") --admin-password $(quote "$ADMIN_PASSWORD") --mariadb-root-password $(quote "$MARIADB_ROOT_PASSWORD")"); else printf 'Site directory exists: %s/sites/%s\n' $(quote "$BENCH_DIR") $(quote "$SITE_NAME"); fi"
 
-for app_name in "${INSTALL_APPS[@]+"${INSTALL_APPS[@]}"}"; do
-  remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); if bench --site $(quote "$SITE_NAME") list-apps | awk '{print \\\$1}' | grep -Fxq $(quote "$app_name"); then printf 'App %s already installed on site; skipping install-app.\\n' $(quote "$app_name"); else bench --site $(quote "$SITE_NAME") install-app $(quote "$app_name"); fi")"
-done
-
 if [[ "$INSTALL_PRODUCTION" -eq 1 ]]; then
-  remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); if [ -f config/supervisor.conf ] && [ -f config/nginx.conf ]; then printf 'Production config already exists; skipping bench setup production.\\n'; else sudo /home/$(quote "$BENCH_USER")/.local/bin/bench setup production $(quote "$BENCH_USER") --yes; fi")"
+  printf 'Phase 3/3: configure production services and start Bench services.\n'
+  remote_as_bench_user_privileged "systemctl is-enabled --quiet nginx || systemctl enable nginx; systemctl is-active --quiet nginx || systemctl start nginx"
+  remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); if [ -f config/supervisor.conf ] && [ -f config/nginx.conf ]; then printf 'Production config already exists; skipping bench setup production.\n'; else sudo /home/$(quote "$BENCH_USER")/.local/bin/bench setup production $(quote "$BENCH_USER") --yes; fi")"
+  remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); printf 'y\\n' | bench setup supervisor; grep -Fq '[program:$(basename "$BENCH_DIR")-node-socketio]' config/supervisor.conf")"
+  remote_as_bench_user_privileged "$(supervisor_reload_command)"
+  remote_as_bench_user_privileged "$(nginx_reload_command)"
 fi
 
-remote_privileged "$(supervisor_reload_command)"
-remote_privileged "$(nginx_reload_command)"
+for app_name in "${INSTALL_APPS[@]+"${INSTALL_APPS[@]}"}"; do
+  remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); if bench --site $(quote "$SITE_NAME") list-apps | awk '{print \$1}' | grep -Fxq $(quote "$app_name"); then printf 'App %s already installed on site; skipping install-app.\\n' $(quote "$app_name"); else bench --site $(quote "$SITE_NAME") install-app $(quote "$app_name"); fi")"
+done
 
 remote_as_bench_user "$(bench_user_env "$(migrate_command)")"
 
@@ -486,7 +623,7 @@ if [[ "$ENABLE_SCHEDULER" -eq 1 ]]; then
 fi
 
 if [[ "$INSTALL_PRODUCTION" -eq 1 ]]; then
-  remote_privileged "$(production_health_check_command)"
+  remote_as_bench_user_privileged "$(production_health_check_command)"
 fi
 
 if [[ "$SETUP_SSL" -eq 1 ]]; then
