@@ -102,6 +102,8 @@ For `setup_certbot.sh`:
 
 For Flutter web deploy workflows:
 
+- Start from `../github-actions-deployment/reference/flutter-web-production.yml`
+  when creating a new static web workflow, then apply an app-specific secret prefix.
 - Place `.github/workflows/` inside the actual Flutter app Git repository, not the bench root.
 - Build in GitHub Actions and deploy only the generated `build/web` artifact.
 - Use production branch push triggers plus `workflow_dispatch`.

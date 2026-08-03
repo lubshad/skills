@@ -1,0 +1,121 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - production
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pipecat-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      SSH_HOST: ${{ secrets.PIPECAT_SSH_HOST }}
+      SSH_USER: ${{ secrets.PIPECAT_SSH_USER }}
+      SSH_PORT: ${{ secrets.PIPECAT_SSH_PORT || '22' }}
+      REMOTE_PATH: ${{ vars.PIPECAT_REMOTE_PATH }}
+      SERVICE_NAME: ${{ vars.PIPECAT_SERVICE_NAME }}
+      PUBLIC_URL: ${{ vars.PIPECAT_PUBLIC_URL }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Validate bot syntax
+        run: python3 -m py_compile server/bot.py
+
+      - name: Validate deployment configuration
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PIPECAT_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          for variable in SSH_HOST SSH_USER SSH_PRIVATE_KEY REMOTE_PATH SERVICE_NAME PUBLIC_URL; do
+            [ -n "${!variable:-}" ] || { echo "Missing required deployment value: $variable" >&2; exit 1; }
+          done
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PIPECAT_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/pipecat_deploy"
+          chmod 600 "$HOME/.ssh/pipecat_deploy"
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Deploy and verify
+        run: |
+          set -euo pipefail
+
+          ssh_options=(
+            -i "$HOME/.ssh/pipecat_deploy"
+            -p "$SSH_PORT"
+            -o BatchMode=yes
+            -o ConnectTimeout=10
+            -o ConnectionAttempts=2
+            -o ServerAliveInterval=10
+            -o ServerAliveCountMax=3
+            -o StrictHostKeyChecking=yes
+          )
+          target="$SSH_USER@$SSH_HOST"
+          deployed=0
+
+          rollback() {
+            if [ "$deployed" -eq 1 ]; then
+              echo "Deployment failed; restoring the previous bot.py." >&2
+              ssh "${ssh_options[@]}" "$target" \
+                "cd '$REMOTE_PATH' && cp -p bot.py.previous bot.py && sudo -n systemctl --no-block restart '$SERVICE_NAME'" || true
+            fi
+          }
+          trap rollback ERR
+
+          echo "Checking the remote deployment directory..."
+          ssh "${ssh_options[@]}" "$target" \
+            "test -d '$REMOTE_PATH' && test -f '$REMOTE_PATH/bot.py' && test -f '$REMOTE_PATH/.env'"
+
+          echo "Uploading bot.py..."
+          rsync -az --timeout=30 --chmod=F644 \
+            -e "ssh -i $HOME/.ssh/pipecat_deploy -p $SSH_PORT -o BatchMode=yes -o ConnectTimeout=10 -o ConnectionAttempts=2 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes" \
+            server/bot.py "$target:$REMOTE_PATH/.bot.py.release"
+
+          deployed=1
+          echo "Replacing bot.py and restarting $SERVICE_NAME..."
+          ssh "${ssh_options[@]}" "$target" \
+            "set -e; cd '$REMOTE_PATH'; cp -p bot.py bot.py.previous; mv .bot.py.release bot.py; sudo -n systemctl --no-block restart '$SERVICE_NAME'"
+
+          echo "Waiting for the local Pipecat health endpoint..."
+          for attempt in {1..12}; do
+            if ssh "${ssh_options[@]}" "$target" \
+              "sudo -n systemctl is-active --quiet '$SERVICE_NAME' && curl --fail --silent --show-error --connect-timeout 2 --max-time 5 http://127.0.0.1:7860/status >/dev/null"; then
+              break
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              ssh "${ssh_options[@]}" "$target" \
+                "sudo -n systemctl status '$SERVICE_NAME' --no-pager; sudo -n journalctl -u '$SERVICE_NAME' -n 100 --no-pager" || true
+              false
+            fi
+            echo "Waiting for the service health check ($attempt/12)..."
+            sleep 5
+          done
+
+          echo "Checking the public health endpoint..."
+          curl --fail --silent --show-error --connect-timeout 5 --max-time 10 \
+            --retry 6 --retry-delay 5 --retry-all-errors \
+            "${PUBLIC_URL%/}/status" >/dev/null
+
+          trap - ERR
+          echo "Production deployment is healthy."
+
+      - name: Remove SSH key
+        if: always()
+        run: rm -f "$HOME/.ssh/pipecat_deploy"

@@ -1,0 +1,121 @@
+name: Deploy Flutter Web Production
+
+on:
+  push:
+    branches:
+      - production
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-web-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: ${{ vars.FLUTTER_WEB_PUBLIC_URL }}
+
+    env:
+      FLUTTER_TARGET: ${{ vars.FLUTTER_WEB_TARGET || 'lib/main_prod.dart' }}
+      REMOTE_APP_DIR: ${{ secrets.FLUTTER_WEB_REMOTE_PATH || '/var/www/flutter_web_app' }}
+      SSH_HOST: ${{ secrets.FLUTTER_WEB_SSH_HOST }}
+      SSH_USER: ${{ secrets.FLUTTER_WEB_SSH_USER }}
+      SSH_PORT: ${{ secrets.FLUTTER_WEB_SSH_PORT || '22' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate required deployment secrets
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.FLUTTER_WEB_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for var_name in SSH_HOST SSH_USER; do
+            if [ -z "${!var_name}" ]; then
+              echo "Missing required secret backing ${var_name}" >&2
+              missing=1
+            fi
+          done
+
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "Missing required secret FLUTTER_WEB_SSH_PRIVATE_KEY" >&2
+            missing=1
+          fi
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build production web bundle
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.FLUTTER_WEB_GOOGLE_MAPS_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          build_args=(web --release -t "$FLUTTER_TARGET")
+          if [ -n "$GOOGLE_MAPS_API_KEY" ]; then
+            build_args+=(--dart-define="GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY")
+          fi
+          flutter build "${build_args[@]}"
+
+      - name: Validate web artifacts
+        run: test -f build/web/index.html
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.FLUTTER_WEB_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/flutter_web_deploy_key
+          chmod 600 ~/.ssh/flutter_web_deploy_key
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Ensure remote directory
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/flutter_web_deploy_key -p "$SSH_PORT" \
+            "$SSH_USER@$SSH_HOST" \
+            REMOTE_APP_DIR="$REMOTE_APP_DIR" \
+            'bash -s' <<'EOF'
+          set -euo pipefail
+          sudo mkdir -p "$REMOTE_APP_DIR"
+          sudo chown -R "$USER:$USER" "$REMOTE_APP_DIR"
+          EOF
+
+      - name: Sync and verify web artifacts
+        run: |
+          set -euo pipefail
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/flutter_web_deploy_key -p $SSH_PORT" \
+            build/web/ \
+            "$SSH_USER@$SSH_HOST:$REMOTE_APP_DIR/"
+
+          ssh -i ~/.ssh/flutter_web_deploy_key -p "$SSH_PORT" \
+            "$SSH_USER@$SSH_HOST" \
+            REMOTE_APP_DIR="$REMOTE_APP_DIR" \
+            'bash -s' <<'EOF'
+          set -euo pipefail
+          sudo chown -R www-data:www-data "$REMOTE_APP_DIR"
+          sudo chmod -R 755 "$REMOTE_APP_DIR"
+          test -f "$REMOTE_APP_DIR/index.html"
+          find "$REMOTE_APP_DIR" -type f | wc -l
+          EOF

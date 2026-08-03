@@ -24,6 +24,7 @@ When a Flutter app has multiple entrypoints (e.g., `main_dev.dart`, `main_prod.d
 
 When using Xcode Cloud for TestFlight or automated App Store releases:
 
+- **Executable Script**: Commit `ios/ci_scripts/ci_post_clone.sh` with executable mode `100755`; run `git add --chmod=+x ios/ci_scripts/ci_post_clone.sh` before committing it.
 - **Responsibility Check**: The `ci_post_clone.sh` script is only responsible for preparing Flutter dependencies, generating iOS configuration, and installing iOS-specific dependencies.
 - **No Full Builds**: Do not run a full `flutter build ios` (without `--config-only`) inside the post-clone script. Let Xcode Cloud handle the actual archiving and signing.
 - **Target Configuration**: Use `--config-only` to set the entrypoint target for Xcode:

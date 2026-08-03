@@ -1,0 +1,49 @@
+#!/bin/bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if ! REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then
+	echo "This script must be run inside a git repository." >&2
+	exit 1
+fi
+
+cd "$REPO_ROOT"
+
+if [ -n "$(git status --porcelain)" ]; then
+	echo "Commit or stash all changes before promoting to production." >&2
+	exit 1
+fi
+
+current_branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$current_branch" = "HEAD" ]; then
+	echo "Detached HEAD is not supported for production promotion." >&2
+	exit 1
+fi
+
+if [ "$current_branch" = "production" ] || [ "$current_branch" = "production-backup" ]; then
+	echo "Promote from a development or release branch, not $current_branch." >&2
+	exit 1
+fi
+
+git fetch origin --prune
+
+if ! git show-ref --verify --quiet refs/remotes/origin/production; then
+	echo "Remote branch origin/production was not found." >&2
+	echo "Initialize production and production-backup from the intended baseline first." >&2
+	exit 1
+fi
+
+echo "Backing up origin/production to production-backup..."
+git push --force-with-lease origin \
+	refs/remotes/origin/production:refs/heads/production-backup
+git fetch origin production-backup
+git branch -f production-backup origin/production-backup
+
+echo "Promoting $current_branch to production..."
+git push --force-with-lease origin HEAD:refs/heads/production
+git fetch origin production
+git branch -f production origin/production
+
+echo "Production promotion completed. GitHub Actions will deploy the production branch."

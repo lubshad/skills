@@ -46,7 +46,7 @@ Reference map for all apps, sites, and their connections in this bench.
 
 ### Masar Deployment Files
 
-- Backend deploy: `apps/masar/sync.sh`
+- Legacy backend deploy: `apps/masar/sync.sh`; new Frappe production deployments use GitHub Actions plus `goproduction`
 - Backend SSH helper: `apps/masar/sshmain.sh`
 - Admin local run: `run_masar_admin.sh` or `flutter_apps/masar_admin/run.sh`
 - Web deploy: `next_apps/masarnext/deploy.sh`
@@ -104,6 +104,18 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 | Admin frontend | `flutter_apps/xealth_admin/` | Flutter shift management admin panel |
 | Frappe site | `sites/xealth.localhost` | Local Xealth target site |
 | API base URL (dev) | `http://xealth.localhost:8000` | Local Frappe API host |
+
+## Zeronic Project
+
+| Component | Location | Role |
+|-----------|----------|------|
+| Backend | `apps/zeronic/` | Frappe app for Zeronic customizations and APIs |
+| Web frontend | `react_apps/zeronic/` | Vite/React public Zeronic application |
+| Frappe site | `sites/zeronic.localhost` | Local Zeronic target site |
+| API base URL (dev) | `http://zeronic.localhost:8000` | Set via `VITE_API_BASE_URL` in the React app's `.env.development` |
+| Web frontend URL (dev) | `http://zeronic.localhost:8080` | Run with `npm run dev`; matches the Frappe hostname for CORS, session cookies, and Socket.IO |
+| Backend host (prod) | `zeronic.coreaxissolutions.in` | Production Frappe host and site |
+| Backend deploy | `apps/zeronic/.github/workflows/deploy-production.yml` | GitHub Actions deploys pushes promoted by `apps/zeronic/goproduction` to the `production` branch |
 
 ## Environment Config
 

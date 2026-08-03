@@ -1,25 +1,28 @@
 ---
 name: frappe-deployment
-description: Use when changing or explaining Frappe app deployment scripts, deployment sync flow, or production deployment commands.
+description: Use when creating, changing, or explaining GitHub Actions production deployment for Frappe apps, including goproduction branch promotion and the remote Bench lifecycle.
 ---
 
 # Frappe Deployment
 
-Use this skill for manual Frappe app deployment sync scripts and for explaining or changing how a Frappe app is deployed in this bench.
+Use this skill for the Frappe-specific lifecycle inside GitHub Actions production deployments and for the `goproduction` branch-promotion flow that triggers them.
 
 ## When To Apply
 
-- Creating or updating `sync.sh` for a Frappe app under `apps/*/`
-- Explaining what an existing Frappe deploy script does
+- Creating or updating a GitHub Actions workflow that deploys a Frappe app
+- Creating or updating a Frappe app's `goproduction` helper
+- Migrating an existing manual Frappe deployment to GitHub Actions
+- Explaining a Frappe production deployment or legacy sync script
 - Adjusting remote host, site, SSH key, app path, or migrate/restart flow
 
-## Bench Paths
+## Required Deployment Artifacts
 
-- App deploy scripts live under app roots, for example:
-  - `apps/exam/sync.sh`
-  - `apps/masar/sync.sh`
-- Preferred shared deploy implementation: `scripts/sync_frappe_app.sh`
-- New app-level `sync.sh` files should be thin wrappers around `scripts/sync_frappe_app.sh` unless there is a concrete app-specific deployment flow.
+- Keep `.github/workflows/deploy-production.yml` in the Frappe app's actual Git repository.
+- Keep `goproduction` in that repository root and make it executable.
+- Use a dedicated remote `production` branch as the deployment trigger.
+- Maintain a remote `production-backup` branch containing the production ref that existed before the latest promotion.
+- Initialize both remote branches from the intended baseline before the first normal promotion.
+- Do not create a new app-level `sync.sh`; production source sync belongs inside the GitHub Actions workflow.
 
 ## Current Project Defaults
 
@@ -30,64 +33,55 @@ Use this skill for manual Frappe app deployment sync scripts and for explaining 
 - Xealth remote host/site: `backend.xealth.ca`
 - Common remote bench path: `/home/frappe/frappe-bench`
 - Common SSH user: `frappe`
-- Existing scripts commonly use the SSH key name `personal`
+- Local legacy scripts may refer to an SSH key named `personal`; never commit that key or any other private key
 - Server setup unlocks the `frappe` account when needed and copies the initial root/login user's `authorized_keys` to `/home/frappe/.ssh/authorized_keys`, so deployment scripts can use `ssh frappe@<host>` after setup.
 
-## Script Pattern
+## Production Promotion
 
-For Frappe app deploy scripts:
+- Start from `.agents/skills/github-actions-deployment/reference/frappe-goproduction`.
+- Require a clean worktree and a named source branch.
+- Refuse promotion from `production` or `production-backup`.
+- Fetch and prune `origin` before comparing or updating refs.
+- Require `origin/production` so every normal promotion has a recoverable predecessor.
+- Back up `origin/production` to `production-backup` before changing production.
+- Use `--force-with-lease` for both protected ref updates; never use an unguarded force push.
+- Refresh local `production` and `production-backup` refs after successful pushes.
+- The helper promotes Git refs only. It must not SSH, rsync, migrate, restart, or duplicate workflow deployment logic.
 
-- Start with `#!/bin/bash`
-- Prefer `set -euo pipefail`
-- Prefer the shared script instead of duplicating deploy logic. App wrappers should resolve the bench root and `exec` the shared script with app-specific defaults, for example:
-  `exec "$BENCH_ROOT/scripts/sync_frappe_app.sh" --app <app_name> --server-host <host> --site <site> "$@"`
-- Validate required local tools and paths before syncing
-- Use `rsync -avz` and exclude `.git`, `__pycache__`, `*.pyc`, `.DS_Store`
-- Sync only the app directory unless the user explicitly asks to sync another project
-- SSH to the remote bench
-- Install the app from its root with `./env/bin/pip install -e apps/<app_name>`
-- Register the app in `sites/apps.txt` if it is missing (since rsync bypasses `bench get-app`). Do not use plain `echo "<app_name>" >> sites/apps.txt`; if the file does not end with a newline it can create malformed entries like `existingapp<app_name>`.
-- First normalize/repair `sites/apps.txt`, then append with `printf`:
-  `touch sites/apps.txt; tmp_apps="$(mktemp)"; while IFS= read -r app_line || [ -n "$app_line" ]; do if [ "$app_line" != "<app_name>" ] && [[ "$app_line" == *"<app_name>" ]]; then prefix="${app_line%<app_name>}"; if [ -n "$prefix" ] && [ -d "apps/$prefix" ]; then printf '%s\n' "$prefix"; printf '%s\n' "<app_name>"; continue; fi; fi; printf '%s\n' "$app_line"; done < sites/apps.txt > "$tmp_apps"; mv "$tmp_apps" sites/apps.txt; if ! grep -Fxq "<app_name>" sites/apps.txt; then printf '%s\n' "<app_name>" >> sites/apps.txt; fi`
-- If the app install path creates or validates Frappe `Website Theme` records, validate `node` only inside the first-time `bench install-app` branch; do not block normal sync/migrate deploys for already-installed apps. Frappe compiles website themes through `node generate_bootstrap_theme.js` and first-time install will fail with `[Errno 2] No such file or directory: 'node'` if Node.js is absent from the non-interactive SSH PATH.
-- Non-interactive SSH deploy commands may not load NVM or shell profiles even when `node` works in an interactive server session. Before checking `node` in the first-time install branch, source NVM when present and include common local bin paths:
-  `if [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; fi; if [ -d "$HOME/.local/bin" ]; then export PATH="$HOME/.local/bin:$PATH"; fi; command -v node`
-- Run:
-  - `bench --site <site> install-app <app_name>` (only if not already installed)
-  - `bench --site <site> migrate`
-  - `bench restart`
+## Workflow Lifecycle
 
-## Shared Sync Script
+- Start from `.agents/skills/github-actions-deployment/reference/frappe-production.yml`.
+- Check out the pushed production commit and validate all required variables and secrets.
+- Configure a temporary step-scoped SSH private key and seed `known_hosts`.
+- Validate the remote Bench before syncing.
+- Rsync only the app repository into `<bench-dir>/apps/<app-name>` and exclude repository metadata, workflows, local environments, caches, and credential files.
+- Install the package with `env/bin/pip install -e apps/<app-name>`.
+- Normalize and safely register the app in `sites/apps.txt`; never append with plain `echo` because a missing trailing newline can create malformed app names.
+- Run `bench --site <site> install-app <app-name>` only when the app is absent.
+- If first-time installation needs Node.js, load NVM when present and add `$HOME/.local/bin` before validating `node` inside that branch only.
+- Run `bench --site <site> migrate`, optionally `bench build --app <app-name>`, then `bench restart`.
+- Finish with an HTTPS health check and let failure fail the workflow.
+- Do not add frontend deployment steps unless explicitly requested.
 
-Use `scripts/sync_frappe_app.sh` for standard Frappe app syncs.
+## GitHub Actions Deployment
 
-Example direct usage:
+- Read `github-actions-deployment.md` alongside this skill for workflow triggers, permissions, concurrency, GitHub environments, secrets, SSH setup, and branch promotion.
+- Start from `.agents/skills/github-actions-deployment/reference/frappe-production.yml` when adding a standard production deployment.
+- Keep the workflow in the Frappe app's actual Git repository under `.github/workflows/`, including when the app is nested inside a Bench checkout.
+- Prefer a `production` branch push trigger and a guarded `workflow_dispatch` retry path.
+- Use GitHub secrets for SSH host, user, port, and private key. Never commit the private key or expose it as a job-wide environment variable.
+- Rsync only the app repository into `<bench-dir>/apps/<app-name>` and exclude `.git`, `.github`, local environments, caches, and credential files.
+- Preserve the standard remote lifecycle: editable package install, safe `sites/apps.txt` registration, conditional first-time app installation, migration, optional build, restart, then an HTTPS health check.
+- Use `concurrency` with cancellation disabled so production migrations cannot overlap.
+- Use a finite timeout and least-privilege `contents: read` permissions.
+- Add the standard `goproduction` helper with every new Frappe production workflow.
 
-`scripts/sync_frappe_app.sh --app zenvora --server-host coreaxissolutions.in --site zenvorabackend.coreaxissolutions.in --require-node-on-install`
+## Legacy Manual Sync
 
-Mode examples:
-
-- `--mode sync`: rsync app files only
-- `--mode install`: run editable package install, normalize `sites/apps.txt`, and run first-time `bench install-app` if needed
-- `--mode migrate`: run `bench --site <site> migrate` only
-- `--mode build`: run `bench build --app <app_name>` only
-- `--mode restart`: run `bench restart` only
-- `--mode deploy`: default, runs sync + install + migrate + restart
-- `--mode all`: runs sync + install + migrate + build + restart
-
-Supported behavior:
-
-- Resolves local app path from `apps/<app_name>` by default
-- Syncs to `<bench_dir>/apps/<app_name>` by default
-- Installs the Python package with `env/bin/pip install -e apps/<app_name>`
-- Normalizes and repairs `sites/apps.txt` before app installation
-- Runs `bench install-app` only when the app is not already installed on the site, unless `--skip-install-app` is passed
-- Runs `bench migrate` and `bench restart`, unless skipped with `--skip-migrate` or `--skip-restart`
-- Supports `--mode sync|install|migrate|build|restart|deploy|all`; keep `deploy` as the default for backward-compatible app wrappers
-- Supports `--dry-run` for remote directory validation and rsync preview
-- Supports `--require-node-on-install` for apps whose first install creates `Website Theme` records
-
-Do not add frontend deploy steps unless the user explicitly asks for them.
+- Existing app-level `sync.sh` wrappers and `.agents/scripts/sync_frappe_app.sh` are retained only for legacy maintenance.
+- Do not create new wrappers, advertise them as the normal production path, or use them when setting up a new Frappe deployment.
+- Do not delete or rewrite an existing legacy sync script unless the user explicitly requests that app's migration or cleanup.
+- When asked to explain an existing wrapper, state that GitHub Actions plus `goproduction` is the current production standard.
 
 ## Dependency Source Of Truth
 
@@ -97,17 +91,17 @@ Do not add frontend deploy steps unless the user explicitly asks for them.
 
 ## Safety Rules
 
-- Preserve the existing workflow style when updating a script unless the user asks for a redesign
+- Preserve the existing workflow style when updating an established deployment unless it conflicts with the workflow-only standard
 - Prefer safer shell behavior over silent failure
 - Do not use `|| true` unless the user explicitly wants best-effort behavior
-- Fail clearly if the SSH key or required directories are missing
+- Fail clearly if required GitHub secrets, remote branches, or Bench directories are missing
+- Keep private keys outside Git, including private repositories; add legacy local key filenames to `.gitignore`
 - For freshly provisioned hosts, expect direct `frappe` SSH access to work after `apps/xealth/setup_server.sh` or `.agents/scripts/setup_frappe_server.sh` has completed. If it does not, check whether the account is locked and then check `/home/frappe/.ssh/authorized_keys` ownership and permissions before changing deploy flow.
 - Avoid destructive remote commands beyond the intended deploy flow
 
 ## Masar-Specific Notes
 
-- `apps/masar/sync.sh` is backend-only unless the user explicitly asks to include `masarnext`
-- If a key path is ambiguous, prefer making it configurable via `--ssh-key`
+- `apps/masar/sync.sh` is a legacy backend-only deployment path; do not extend it or include `masarnext` in it.
 
 ## Xealth-Specific Notes
 
@@ -122,6 +116,10 @@ Do not add frontend deploy steps unless the user explicitly asks for them.
 
 ## Verification
 
-- Run the deployment in its supported dry-run or guarded mode before mutating a production host.
+- Validate workflow and promotion scripts without pushing `production` or contacting the production host as routine verification.
+- Run `bash -n goproduction` and verify its clean-worktree and branch guards.
 - Verify application package state, site installation, migrations, worker services, and nginx status.
 - Verify the target site responds through its intended host and HTTPS configuration.
+- Parse or lint GitHub workflow YAML and verify every secret and variable is documented.
+- Confirm no private-key files are tracked or included by rsync.
+- Confirm no updated guidance recommends creating or using `sync.sh` as the standard production path.

@@ -1,54 +1,74 @@
 #!/bin/bash
 
-# Extract current version and build number from pubspec.yaml
-version_line=$(grep -o 'version: [0-9]*\.[0-9]*\.[0-9]*+[0-9]*' pubspec.yaml)
-current_version=$(echo $version_line | grep -o '[0-9]*\.[0-9]*\.[0-9]*')
-current_build=$(echo $version_line | grep -o '+[0-9]*' | tr -d '+')
+set -euo pipefail
 
-echo "Current version: $current_version+$current_build"
-echo ""
-echo "What type of update is this?"
-echo "1) Major update (1.0.1 → 2.0.0) - Breaking changes"
-echo "2) Feature update (1.0.1 → 1.1.0) - New features"
-echo "3) Bug fix (1.0.1 → 1.0.2) - Bug fixes"
-echo "4) Build only (1.0.1+2 → 1.0.1+3) - Same version, new build"
-echo ""
-read -p "Enter your choice (1-4): " choice
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PUBSPEC_FILE="$SCRIPT_DIR/pubspec.yaml"
+BUMP_TYPE="build"
+DRY_RUN=false
 
-# Parse version numbers
+show_usage() {
+    echo "Usage: $0 [major|minor|patch|build] [--dry-run]"
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        major|minor|patch|build)
+            BUMP_TYPE="$1"
+            shift
+            ;;
+        --major|--minor|--patch|--build)
+            BUMP_TYPE="${1#--}"
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        -h|--help)
+            show_usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            show_usage
+            exit 1
+            ;;
+    esac
+done
+
+if [ ! -f "$PUBSPEC_FILE" ]; then
+    echo "pubspec.yaml not found: $PUBSPEC_FILE" >&2
+    exit 1
+fi
+
+version_line="$(grep -E '^version: [0-9]+\.[0-9]+\.[0-9]+\+[0-9]+$' "$PUBSPEC_FILE" || true)"
+if [ -z "$version_line" ]; then
+    echo "Could not find a version line like 'version: 1.0.0+1' in $PUBSPEC_FILE" >&2
+    exit 1
+fi
+
+current_full="${version_line#version: }"
+current_version="${current_full%%+*}"
+current_build="${current_full##*+}"
 IFS='.' read -r major minor patch <<< "$current_version"
 
-case $choice in
-    1)
-        # Major update: increment major, reset minor and patch
-        new_major=$((major + 1))
-        new_version="$new_major.0.0"
-        new_build=$((current_build + 1))
-        ;;
-    2)
-        # Feature update: increment minor, reset patch
-        new_minor=$((minor + 1))
-        new_version="$major.$new_minor.0"
-        new_build=$((current_build + 1))
-        ;;
-    3)
-        # Bug fix: increment patch
-        new_patch=$((patch + 1))
-        new_version="$major.$minor.$new_patch"
-        new_build=$((current_build + 1))
-        ;;
-    4)
-        # Build only: keep same version, increment build
-        new_version="$current_version"
-        new_build=$((current_build + 1))
-        ;;
-    *)
-        echo "Invalid choice. Exiting."
-        exit 1
-        ;;
+case "$BUMP_TYPE" in
+    major) new_version="$((major + 1)).0.0" ;;
+    minor) new_version="$major.$((minor + 1)).0" ;;
+    patch) new_version="$major.$minor.$((patch + 1))" ;;
+    build) new_version="$current_version" ;;
 esac
 
-# Update pubspec.yaml with new version
-sed -i '' "s/version: [0-9]*\.[0-9]*\.[0-9]*+[0-9]*/version: $new_version+$new_build/" pubspec.yaml
+new_full="$new_version+$((current_build + 1))"
+if [ "$DRY_RUN" = true ]; then
+    echo "$current_full -> $new_full"
+    exit 0
+fi
 
-echo "Updated version to $new_version+$new_build"
+sed -i.bak -E \
+    "s/^version: [0-9]+\.[0-9]+\.[0-9]+\+[0-9]+$/version: $new_full/" \
+    "$PUBSPEC_FILE"
+rm -f "$PUBSPEC_FILE.bak"
+
+echo "Updated version: $current_full -> $new_full"

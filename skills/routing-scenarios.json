@@ -83,6 +83,20 @@
     ]
   },
   {
+    "scenario": "Frappe app production deployment through GitHub Actions with goproduction branch promotion",
+    "skills": [
+      "frappe-deployment",
+      "github-actions-deployment"
+    ]
+  },
+  {
+    "scenario": "Pipecat bot production deployment with uv, systemd, GitHub Actions, and goproduction branch promotion",
+    "skills": [
+      "pipecat-self-hosting",
+      "github-actions-deployment"
+    ]
+  },
+  {
     "scenario": "Task not covered by any existing skill, or asked to create/update a workspace skill",
     "skills": [
       "skill-updates"

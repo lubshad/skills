@@ -1,0 +1,155 @@
+name: Deploy Frappe App Production
+
+on:
+  push:
+    branches:
+      - production
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frappe-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: ${{ vars.FRAPPE_PUBLIC_URL }}
+    env:
+      APP_NAME: ${{ vars.FRAPPE_APP_NAME }}
+      BENCH_DIR: ${{ vars.FRAPPE_BENCH_DIR || '/home/frappe/frappe-bench' }}
+      SITE: ${{ vars.FRAPPE_SITE }}
+      PUBLIC_URL: ${{ vars.FRAPPE_PUBLIC_URL }}
+      RUN_BUILD: ${{ vars.FRAPPE_RUN_BUILD || 'false' }}
+      SSH_HOST: ${{ secrets.FRAPPE_SSH_HOST }}
+      SSH_USER: ${{ secrets.FRAPPE_SSH_USER }}
+      SSH_PORT: ${{ secrets.FRAPPE_SSH_PORT || '22' }}
+
+    steps:
+      - name: Checkout production
+        uses: actions/checkout@v4
+
+      - name: Validate deployment configuration
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.FRAPPE_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          : "${APP_NAME:?Missing FRAPPE_APP_NAME variable}"
+          : "${SITE:?Missing FRAPPE_SITE variable}"
+          : "${SSH_HOST:?Missing FRAPPE_SSH_HOST secret}"
+          : "${SSH_USER:?Missing FRAPPE_SSH_USER secret}"
+          : "${SSH_PRIVATE_KEY:?Missing FRAPPE_SSH_PRIVATE_KEY secret}"
+
+          [[ "$APP_NAME" =~ ^[a-z0-9_]+$ ]] || {
+            echo "FRAPPE_APP_NAME must contain only lowercase letters, numbers, and underscores." >&2
+            exit 1
+          }
+          [[ "$SITE" =~ ^[A-Za-z0-9.-]+$ ]] || {
+            echo "FRAPPE_SITE contains unsupported characters." >&2
+            exit 1
+          }
+          [[ "$BENCH_DIR" =~ ^/[A-Za-z0-9_./-]+$ ]] || {
+            echo "FRAPPE_BENCH_DIR must be a safe absolute path." >&2
+            exit 1
+          }
+          [[ "$RUN_BUILD" = "true" || "$RUN_BUILD" = "false" ]] || {
+            echo "FRAPPE_RUN_BUILD must be true or false." >&2
+            exit 1
+          }
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.FRAPPE_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$RUNNER_TEMP/frappe_deploy_key"
+          chmod 600 "$RUNNER_TEMP/frappe_deploy_key"
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> "$HOME/.ssh/known_hosts"
+
+      - name: Validate remote Bench
+        run: |
+          set -euo pipefail
+          ssh -i "$RUNNER_TEMP/frappe_deploy_key" -p "$SSH_PORT" \
+            "$SSH_USER@$SSH_HOST" \
+            "test -d '$BENCH_DIR' && test -x '$BENCH_DIR/env/bin/pip' && mkdir -p '$BENCH_DIR/apps/$APP_NAME'"
+
+      - name: Sync application source
+        run: |
+          set -euo pipefail
+          rsync -avz --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '.venv' \
+            --exclude '.ruff_cache' \
+            --exclude '__pycache__' \
+            --exclude '*.pyc' \
+            --exclude '.DS_Store' \
+            --exclude 'personal' \
+            -e "ssh -i $RUNNER_TEMP/frappe_deploy_key -p $SSH_PORT" \
+            ./ "$SSH_USER@$SSH_HOST:$BENCH_DIR/apps/$APP_NAME/"
+
+      - name: Install and migrate application
+        run: |
+          set -euo pipefail
+          ssh -i "$RUNNER_TEMP/frappe_deploy_key" -p "$SSH_PORT" \
+            "$SSH_USER@$SSH_HOST" \
+            "APP_NAME='$APP_NAME' BENCH_DIR='$BENCH_DIR' SITE='$SITE' RUN_BUILD='$RUN_BUILD' bash -se" <<'REMOTE'
+          set -euo pipefail
+
+          cd "$BENCH_DIR"
+          if [ -d "$HOME/.local/bin" ]; then
+            export PATH="$HOME/.local/bin:$PATH"
+          fi
+
+          "$BENCH_DIR/env/bin/pip" install -e "apps/$APP_NAME"
+
+          touch sites/apps.txt
+          tmp_apps="$(mktemp)"
+          while IFS= read -r app_line || [ -n "$app_line" ]; do
+            if [ "$app_line" != "$APP_NAME" ] && [[ "$app_line" == *"$APP_NAME" ]]; then
+              prefix="${app_line%"$APP_NAME"}"
+              if [ -n "$prefix" ] && [ -d "apps/$prefix" ]; then
+                printf '%s\n' "$prefix"
+                printf '%s\n' "$APP_NAME"
+                continue
+              fi
+            fi
+            printf '%s\n' "$app_line"
+          done < sites/apps.txt > "$tmp_apps"
+          mv "$tmp_apps" sites/apps.txt
+          if ! grep -Fxq "$APP_NAME" sites/apps.txt; then
+            printf '%s\n' "$APP_NAME" >> sites/apps.txt
+          fi
+
+          if ! bench --site "$SITE" list-apps | awk '{print $1}' | grep -Fxq "$APP_NAME"; then
+            if [ -s "$HOME/.nvm/nvm.sh" ]; then
+              . "$HOME/.nvm/nvm.sh"
+            fi
+            command -v node >/dev/null 2>&1 || {
+              echo "Node.js is required for first-time app installation." >&2
+              exit 1
+            }
+            bench --site "$SITE" install-app "$APP_NAME"
+          fi
+
+          bench --site "$SITE" migrate
+          if [ "$RUN_BUILD" = "true" ]; then
+            bench build --app "$APP_NAME"
+          fi
+          bench restart
+          REMOTE
+
+      - name: Verify production site
+        run: |
+          set -euo pipefail
+          health_url="${PUBLIC_URL:-https://$SITE}"
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-delay 10 --retry-all-errors \
+            --max-time 30 "$health_url" >/dev/null

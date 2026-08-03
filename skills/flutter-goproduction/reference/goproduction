@@ -1,45 +1,87 @@
 #!/bin/bash
 
-# Ensure we have the latest refs
-git fetch origin
+set -euo pipefail
 
-current_branch=$(git rev-parse --abbrev-ref HEAD)
-echo "Current branch: $current_branch"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUMP_TYPE="build"
+COMMIT_MESSAGE=""
 
-# 1. Run version increment script
-echo "Running version increment..."
-./version_increment.sh
+show_usage() {
+    echo "Usage: $0 [major|minor|patch|build] [--message MESSAGE]"
+    echo ""
+    echo "Bumps the app version, pushes main, and promotes it to production."
+}
 
-# 2. Commit and push current branch
-echo "Committing changes..."
-# Check if there are changes to commit
-if [[ -n $(git status -s) ]]; then
-    git add .
-    read -p "Enter commit message (default: Bump version for production release): " commit_msg
-    commit_msg=${commit_msg:-Bump version for production release}
-    git commit -m "$commit_msg"
-    
-    echo "Pushing $current_branch to remote..."
-    git push origin HEAD
-else
-    echo "No changes to commit."
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        major|minor|patch|build)
+            BUMP_TYPE="$1"
+            shift
+            ;;
+        -m|--message)
+            if [ $# -lt 2 ]; then
+                echo "--message requires a value" >&2
+                exit 1
+            fi
+            COMMIT_MESSAGE="$2"
+            shift 2
+            ;;
+        -h|--help)
+            show_usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            show_usage
+            exit 1
+            ;;
+    esac
+done
+
+cd "$SCRIPT_DIR"
+
+current_branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$current_branch" != "main" ]; then
+    echo "Production releases must be promoted from main; current branch is $current_branch." >&2
+    exit 1
 fi
 
-# 3. Restore production-backup from production
-echo "Restoring production-backup from production..."
-# Updates remote production-backup with what is currently on remote production
-git push origin origin/production:refs/heads/production-backup --force
-# Update local production-backup as well
-echo "Updating local production-backup..."
-git branch -f production-backup origin/production
+git fetch origin --prune
 
-# 4. Restore production from main (current branch)
-# The user specified "restore production branch with main branch".
-# Assuming the current branch IS main (or the branch we want to promote).
-echo "Restoring production from $current_branch..."
-git push origin HEAD:refs/heads/production --force
-# Update local production as well
-echo "Updating local production..."
-git branch -f production HEAD
+if git show-ref --verify --quiet refs/remotes/origin/main && \
+    ! git merge-base --is-ancestor origin/main HEAD; then
+    echo "Local main is behind or has diverged from origin/main. Update it before releasing." >&2
+    exit 1
+fi
 
-echo "Production release process completed."
+./version_increment.sh "$BUMP_TYPE"
+git add pubspec.yaml
+
+if git diff --cached --quiet -- pubspec.yaml; then
+    echo "Version increment did not change pubspec.yaml." >&2
+    exit 1
+fi
+
+if [ -z "$COMMIT_MESSAGE" ]; then
+    new_version="$(sed -nE 's/^version: ([0-9]+\.[0-9]+\.[0-9]+\+[0-9]+)$/\1/p' pubspec.yaml)"
+    COMMIT_MESSAGE="chore: release $new_version"
+fi
+
+git commit -m "$COMMIT_MESSAGE" -- pubspec.yaml
+git push origin HEAD:refs/heads/main
+
+git fetch origin --prune
+if git show-ref --verify --quiet refs/remotes/origin/production; then
+    echo "Backing up the current production branch to production-backup..."
+    git push --force-with-lease origin \
+        refs/remotes/origin/production:refs/heads/production-backup
+    git fetch origin production-backup
+    git branch -f production-backup origin/production-backup
+fi
+
+echo "Promoting main to production..."
+git push --force-with-lease origin HEAD:refs/heads/production
+git fetch origin production
+git branch -f production origin/production
+
+echo "Production promotion completed. CI will deploy the production branch."
