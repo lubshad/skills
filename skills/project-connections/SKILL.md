@@ -1,6 +1,6 @@
 ---
-name: app-connections
-description: Use when needing site URLs, app paths, environment references, bench connections, or cross-app configuration details.
+name: project-connections
+description: Use when identifying project backend and frontend apps, site URLs, environment references, bench connections, or cross-app configuration details.
 ---
 
 Reference map for all apps, sites, and their connections in this bench.

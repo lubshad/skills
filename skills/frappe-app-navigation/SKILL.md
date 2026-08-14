@@ -210,7 +210,7 @@ This applies to:
 
 Steps:
 
-1. **Look up the site.** Do not ask the user which site unless the app-to-site mapping is genuinely unknown. Check `.agents/skills/app-connections.md` first — it maps each Frappe app on this bench to its primary site (e.g. `exam` → `mcal.localhost`, `masar` → `masar.localhost`).
+1. **Look up the site.** Do not ask the user which site unless the app-to-site mapping is genuinely unknown. Check `project-connections.md` first - it maps each Frappe app on this bench to its primary site (e.g. `exam` -> `mcal.localhost`, `masar` -> `masar.localhost`).
 2. **Run migrate for that site:**
 
    ```bash

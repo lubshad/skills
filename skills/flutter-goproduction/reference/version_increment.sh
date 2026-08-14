@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PUBSPEC_FILE="$SCRIPT_DIR/pubspec.yaml"
-BUMP_TYPE="build"
+BUMP_TYPE="patch"
 DRY_RUN=false
 
 show_usage() {

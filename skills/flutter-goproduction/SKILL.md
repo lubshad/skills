@@ -29,7 +29,7 @@ The version helper must:
 
 - Parse one exact `version: x.y.z+n` line from the app-local `pubspec.yaml`.
 - Support non-interactive `major`, `minor`, `patch`, and `build` modes.
-- Default to `build`.
+- Default to `patch`.
 - Increment the build number for every mode.
 - Support `--dry-run` without changing files.
 - Work on macOS and Linux; use a portable temporary backup with `sed -i.bak`.
@@ -45,6 +45,7 @@ Copy and adapt these files:
 The reference promotion script accepts:
 
 ```sh
+./goproduction              # patch release by default
 ./goproduction build
 ./goproduction patch --message "chore: production release"
 ```

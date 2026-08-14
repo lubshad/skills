@@ -22,7 +22,7 @@ Do not use this for consumer/mobile Android and iOS app icon or native splash br
 - Read `flutter-common-widgets.md` before creating or replacing shared logo/brand widgets.
 - Read `flutter-theming.md` before changing colors, fonts, animations, or `ThemeData`.
 - Read `flutter-linting.md` before verification.
-- Read `app-connections.md` when branding scope includes deployment hosts, API base URLs, app links, or environment config.
+- Read `project-connections.md` when branding scope includes deployment hosts, API base URLs, app links, or environment config.
 
 ## Branding Scope
 

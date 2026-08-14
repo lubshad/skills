@@ -95,5 +95,5 @@ Use this skill when explaining, creating, or updating deployment scripts for the
 ## Masar-Specific Notes
 
 - This skill is frontend-only and should not run Frappe bench commands
-- Use `app-connections.md` for the current frontend and backend host mapping
+- Use `project-connections.md` for the current frontend and backend host mapping
 - If the SSH key path is ambiguous, prefer making it configurable via `--ssh-key`

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUMP_TYPE="build"
+BUMP_TYPE="patch"
 COMMIT_MESSAGE=""
 
 show_usage() {

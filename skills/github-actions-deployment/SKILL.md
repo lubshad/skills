@@ -147,7 +147,7 @@ It supports optional `FLUTTER_WEB_SSH_PORT`, `FLUTTER_WEB_REMOTE_PATH`, and
 ## Coordination
 
 - Use `nextjs-deployment.md` together with this skill for `masarnext` deployment work
-- Use `app-connections.md` when hostnames, site URLs, or backend/frontend mappings matter
+- Use `project-connections.md` when hostnames, site URLs, or backend/frontend mappings matter
 - For Frappe GitHub deployments, combine this skill's workflow and credential rules with `frappe-deployment.md` backend lifecycle rules
 - For Pipecat bot production deployments, combine this skill with `pipecat-self-hosting.md`; use its Docker guidance only for an explicit existing Docker deployment
 

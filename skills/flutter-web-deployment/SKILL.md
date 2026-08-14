@@ -12,7 +12,7 @@ Use this skill when creating, updating, or explaining Flutter web deployment scr
 - `flutter-utilities.md` for Flutter web run/build expectations and environment handling.
 - `flutter-linting.md` for verification rules.
 - `github-actions-deployment.md` for CI/CD workflow, secrets, SSH, and repo-boundary rules.
-- `app-connections.md` when hostnames, public URLs, API base URLs, or app/backend mappings matter.
+- `project-connections.md` when hostnames, public URLs, API base URLs, or app/backend mappings matter.
 - `flutter-admin-branding.md` if deployment changes web metadata, favicon, PWA manifest, app title, or brand assets.
 
 ## File Responsibilities

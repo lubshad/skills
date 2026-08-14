@@ -150,6 +150,17 @@ Frappe auto-syncs certain app-level document types from dedicated directories du
 ```
 Child doctype `Specialization Role` has a single `Link → Role` field.
 
+## Autoname And Naming Series
+
+Choose the autoname mode based on whether the document needs a dedicated sequential prefix:
+
+- For a fixed prefix with its own counter, use the naming-series pattern directly: `"autoname": "OA-.#####"`. This produces `OA-00001`, `OA-00002`, and stores the counter under the `OA-` key in `tabSeries`.
+- Do not write `"autoname": "format:OA-.#####"`. In `format:` mode, Frappe only expands braced parameters, so the hashes remain literal and can create a document named `OA-.#####`.
+- Avoid changing that mistake to `"autoname": "format:OA-{#####}"` when a dedicated prefix counter is required. The braced series token is parsed independently from the surrounding literal text and can consume Frappe's unnamed/global series counter instead of the `OA-` counter.
+- Use `format:` for combinations of fields or date tokens, with every dynamic token braced, such as `"autoname": "format:LOG-{YYYY}-{MM}-{fieldname}"`.
+- Correcting DocType metadata only affects future inserts. Add an idempotent data patch using `frappe.rename_doc(..., force=True)` when malformed names already exist, and generate replacements with the intended direct naming series.
+- Bump the DocType JSON `modified` timestamp after changing `autoname`, then run `bench --site <site> migrate` so source metadata replaces cached/database metadata.
+
 ## Rules
 
 - **App-owned doctype JSON → edit + bump `modified`, no patch.** `bench migrate` handles schema sync.
@@ -160,6 +171,7 @@ Child doctype `Specialization Role` has a single `Link → Role` field.
 - **Always use app-level directories** (`desktop_icon/`, `workspace_sidebar/`) for standard app documents — they are declarative, self-documenting, and auto-synced by Frappe.
 - **Always include the time component in `"creation"` and `"modified"` timestamps** in every doctype JSON. Use the full format `"YYYY-MM-DD HH:MM:SS.000000"` — never just `"YYYY-MM-DD"`. Frappe stores and compares full datetimes; a date-only value can cause silent failures or comparison errors.
 - **Bump `"modified"` whenever you edit any JSON file** (`doctype/`, `desktop_icon/`, `workspace_sidebar/`, `workspace/`). Frappe silently skips files whose timestamp is not newer than the database row.
+- **Fixed-prefix counters use direct naming series.** Prefer `PREFIX-.#####`; do not wrap it in `format:` unless the name genuinely combines braced fields/date tokens and does not require the prefix-specific `tabSeries` counter.
 - **Multi-select → always `Table` with a child doctype.** Never use `Table MultiSelect` or `Select` for multi-value fields.
 - **Test patches locally** by running `bench migrate` before committing.
 - **Document the "why"** in a comment at the top of each patch file.
@@ -168,4 +180,6 @@ Child doctype `Specialization Role` has a single `Link → Role` field.
 
 - Run `bench --site <site> migrate` after schema, navigation, or patch changes.
 - Verify the changed DocType metadata and permissions in a clean Desk session.
+- For autoname changes, verify the synced `DocType.autoname`, create two records, and confirm both the generated names and the expected prefix key in `tabSeries`.
+- Verify a repair patch preserves links while renaming malformed existing documents and safely skips when rerun.
 - Verify each new patch is idempotent and safely skips work already applied.
