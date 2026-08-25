@@ -30,7 +30,7 @@ SSL_EMAIL=""
 APPS=()
 APP_BRANCHES=()
 INSTALL_APPS=()
-APT_PACKAGES="build-essential certbot curl git cron libfontconfig libffi-dev libjpeg-dev liblcms2-dev libldap2-dev libmariadb-dev libpq-dev libsasl2-dev libssl-dev mariadb-client mariadb-server nginx pkg-config redis-server sudo supervisor util-linux xvfb zlib1g-dev python3-certbot-nginx"
+APT_PACKAGES="build-essential certbot curl git cron libfontconfig libffi-dev libjpeg-dev liblcms2-dev libldap2-dev libmariadb-dev libpq-dev libsasl2-dev libssl-dev mariadb-client mariadb-server nginx pkg-config redis-server sudo supervisor tzdata util-linux xvfb zlib1g-dev python3-certbot-nginx"
 
 usage() {
   cat <<'USAGE'
