@@ -19,6 +19,8 @@ SSL_EMAIL=""
 SETUP_SSL=1
 ENABLE_SCHEDULER=1
 CHECK_DNS=1
+GET_APPS=()
+GET_APP_BRANCHES=()
 INSTALL_APPS=()
 
 if [[ -f "$DEFAULT_SSH_KEY" ]]; then
@@ -30,8 +32,9 @@ usage() {
 Usage:
   add_frappe_site.sh --host HOST --site SITE --ssl-email EMAIL [options]
 
-Create a site in an existing remote production Frappe Bench. The script runs
-from the local machine over SSH and defaults to a non-mutating dry run.
+Create a site in an existing remote production Frappe Bench. The script can
+fetch missing app repositories, install apps on the new site, and defaults to
+a non-mutating dry run.
 
 Required:
   --host HOST                       Existing server hostname or IP
@@ -46,9 +49,11 @@ Credentials:
   MARIADB_ROOT_PASSWORD. During --execute, missing credentials are prompted
   securely when an interactive terminal is available.
 
-Options:
-  --execute                         Apply changes; otherwise print the plan
-  --install-app APP                 Install an app already in the bench; repeatable
+ Options:
+   --execute                         Apply changes; otherwise print the plan
+   --get-app REPOSITORY              Fetch an app into the existing bench; repeatable
+   --app-branch BRANCH               Branch for the immediately preceding --get-app
+   --install-app APP                 Install an app on the new site; repeatable
   --ssh-user USER                   Remote SSH user (default: frappe)
   --ssh-key PATH                    SSH private key (default: <bench>/personal when present)
   --ssh-port PORT                   SSH port (default: 22)
@@ -60,9 +65,9 @@ Options:
   -h, --help                        Show this help
 
 Examples:
-  add_frappe_site.sh --host 203.0.113.10 --site site4.example.com --ssl-email admin@example.com --install-app erpnext
+  add_frappe_site.sh --host 203.0.113.10 --site site4.example.com --ssl-email admin@example.com --get-app https://github.com/frappe/erpnext --app-branch version-16 --install-app erpnext
 
-  add_frappe_site.sh --execute --host 203.0.113.10 --site site4.example.com --ssl-email admin@example.com --install-app erpnext
+  add_frappe_site.sh --execute --host 203.0.113.10 --site site4.example.com --ssl-email admin@example.com --get-app https://github.com/frappe/erpnext --app-branch version-16 --install-app erpnext
 USAGE
 }
 
@@ -106,6 +111,18 @@ while [[ $# -gt 0 ]]; do
     --ssl-email)
       require_option_value "$1" "${2:-}"
       SSL_EMAIL="$2"
+      shift 2
+      ;;
+    --get-app)
+      require_option_value "$1" "${2:-}"
+      GET_APPS+=("$2")
+      GET_APP_BRANCHES+=("")
+      shift 2
+      ;;
+    --app-branch)
+      require_option_value "$1" "${2:-}"
+      [[ "${#GET_APPS[@]}" -gt 0 ]] || fail "--app-branch requires a preceding --get-app"
+      GET_APP_BRANCHES[${#GET_APP_BRANCHES[@]}-1]="$2"
       shift 2
       ;;
     --install-app)
@@ -173,6 +190,10 @@ for app in "${INSTALL_APPS[@]+"${INSTALL_APPS[@]}"}"; do
   [[ "$app" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]] || fail "invalid app name: $app"
 done
 
+for index in "${!GET_APPS[@]}"; do
+  [[ -n "${GET_APP_BRANCHES[$index]}" ]] || fail "--get-app ${GET_APPS[$index]} requires --app-branch"
+done
+
 command -v ssh >/dev/null 2>&1 || fail "ssh is required"
 if [[ -n "$SSH_KEY" && ! -f "$SSH_KEY" ]]; then
   fail "SSH key not found: $SSH_KEY"
@@ -195,6 +216,12 @@ if [[ "${#INSTALL_APPS[@]}" -gt 0 ]]; then
   printf '\n'
 else
   printf '  Apps: Frappe only\n'
+fi
+if [[ "${#GET_APPS[@]}" -gt 0 ]]; then
+  printf '  Fetch apps:\n'
+  for index in "${!GET_APPS[@]}"; do
+    printf '    %s (branch: %s)\n' "${GET_APPS[$index]}" "${GET_APP_BRANCHES[$index]}"
+  done
 fi
 printf '  Scheduler: %s\n' "$([[ "$ENABLE_SCHEDULER" -eq 1 ]] && printf enabled || printf skipped)"
 printf '  SSL: %s\n' "$([[ "$SETUP_SSL" -eq 1 ]] && printf "Let's Encrypt" || printf skipped)"
@@ -235,6 +262,16 @@ printf 'Connecting to %s@%s and creating %s.\n' "$SSH_USER" "$SSH_HOST" "$SITE"
   printf 'SSL_EMAIL=%q\n' "$SSL_EMAIL"
   printf 'SETUP_SSL=%q\n' "$SETUP_SSL"
   printf 'ENABLE_SCHEDULER=%q\n' "$ENABLE_SCHEDULER"
+  printf 'GET_APPS=('
+  for app in "${GET_APPS[@]+"${GET_APPS[@]}"}"; do
+    printf '%q ' "$app"
+  done
+  printf ')\n'
+  printf 'GET_APP_BRANCHES=('
+  for branch in "${GET_APP_BRANCHES[@]+"${GET_APP_BRANCHES[@]}"}"; do
+    printf '%q ' "$branch"
+  done
+  printf ')\n'
   printf 'INSTALL_APPS=('
   for app in "${INSTALL_APPS[@]+"${INSTALL_APPS[@]}"}"; do
     printf '%q ' "$app"
@@ -323,6 +360,18 @@ command -v curl >/dev/null 2>&1 || {
 run_as_bench bench --version >/dev/null
 run_root nginx -t
 
+for index in "${!GET_APPS[@]}"; do
+  repo="${GET_APPS[$index]}"
+  branch="${GET_APP_BRANCHES[$index]}"
+  app_dir="$(basename "${repo%.git}")"
+  if [[ -d "$BENCH_DIR/apps/$app_dir" ]]; then
+    printf 'App repository is already present: %s\n' "$app_dir"
+  else
+    printf 'Fetching %s (branch: %s).\n' "$repo" "$branch"
+    run_as_bench bench get-app "$repo" --branch "$branch"
+  fi
+done
+
 for app in "${INSTALL_APPS[@]+"${INSTALL_APPS[@]}"}"; do
   [[ -d "$BENCH_DIR/apps/$app" ]] || {
     printf 'Requested app is not present in the bench: %s\n' "$app" >&2
@@ -355,7 +404,12 @@ timestamp="$(date +%Y%m%d%H%M%S)"
 nginx_backup="$BENCH_DIR/config/nginx.conf.add-site.$timestamp.bak"
 run_as_bench cp "$BENCH_DIR/config/nginx.conf" "$nginx_backup"
 
-if ! printf 'y\n' | run_as_bench bench setup nginx; then
+if ! run_as_bench bench setup nginx --logging none --yes; then
+  restore_nginx "$nginx_backup"
+  exit 1
+fi
+if ! run_as_bench grep -Fq "$SITE" "$BENCH_DIR/config/nginx.conf"; then
+  printf 'Generated nginx configuration does not contain the new site: %s\n' "$SITE" >&2
   restore_nginx "$nginx_backup"
   exit 1
 fi

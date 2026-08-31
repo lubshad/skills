@@ -30,9 +30,9 @@ Prefer `.agents/scripts/sync_server_data.sh` for any site. It is parameterized, 
 
 The script auto-detects bench root by walking up from its location looking for `sites/` + `apps/` markers. Pass `--local-bench` to override.
 
-Key defaults: `--remote-user frappe`, `--remote-bench /home/frappe/frappe-bench`, `--ssh-key <bench_root>/personal`, `--admin-password admin`. MariaDB root password is prompted interactively; pass `--mariadb-root-password` to skip the prompt.
+Key defaults: `--remote-user frappe`, `--remote-bench /home/frappe/frappe-bench`, `--ssh-key <bench_root>/personal`, `--admin-password admin`. The MariaDB administrative username and password are prompted interactively before sync work starts; pass `--mariadb-root-username` and `--mariadb-root-password` to skip the prompts.
 
-Flags: `--skip-files`, `--skip-backup`, `--ssh-port`, `--remote-user`, `--remote-bench`, `--admin-password`, `--mariadb-root-password`.
+Flags: `--skip-files`, `--skip-backup`, `--ssh-port`, `--remote-user`, `--remote-bench`, `--admin-password`, `--mariadb-root-username`, `--mariadb-root-password`.
 
 **Note:** `scp` uses `-P` (uppercase) for port, unlike `ssh` which uses `-p`. The script handles this.
 

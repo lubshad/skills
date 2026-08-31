@@ -28,6 +28,7 @@ LOCAL_SITE=""
 WITH_FILES=1
 SKIP_BACKUP=0
 ADMIN_PASSWORD="admin"
+MARIADB_ROOT_USERNAME=""
 MARIADB_ROOT_PASSWORD=""
 RETENTION_DAYS="30"
 
@@ -56,7 +57,10 @@ Options:
   --skip-files              Skip public/private file sync
   --skip-backup             Skip remote backup (use existing latest backup)
   --admin-password PASS     Local admin password for new site (default: admin)
-  --mariadb-root-password   Local MariaDB root password (omit to be prompted)
+  --mariadb-root-username USER
+                            Local MariaDB administrator username (omit to be prompted)
+  --mariadb-root-password PASS
+                            Local MariaDB administrator password (omit to be prompted)
   --retention-days DAYS     Keep backup files from the last DAYS days (default: 30)
   -h, --help                Show this help
 
@@ -208,6 +212,10 @@ while [[ $# -gt 0 ]]; do
       MARIADB_ROOT_PASSWORD="${2:-}"
       shift 2
       ;;
+    --mariadb-root-username)
+      MARIADB_ROOT_USERNAME="${2:-}"
+      shift 2
+      ;;
     --retention-days)
       RETENTION_DAYS="${2:-}"
       shift 2
@@ -228,6 +236,20 @@ fi
 
 require_values
 [[ "$RETENTION_DAYS" =~ ^[1-9][0-9]*$ ]] || fail "--retention-days must be a positive whole number"
+
+if [[ -z "$MARIADB_ROOT_USERNAME" ]]; then
+  printf 'MySQL administrative username: ' >&2
+  IFS= read -r MARIADB_ROOT_USERNAME || fail "MySQL administrative username is required"
+fi
+[[ -n "$MARIADB_ROOT_USERNAME" ]] || fail "MySQL administrative username is required"
+
+if [[ -z "$MARIADB_ROOT_PASSWORD" ]]; then
+  printf 'MySQL password for %s: ' "$MARIADB_ROOT_USERNAME" >&2
+  IFS= read -r -s MARIADB_ROOT_PASSWORD || fail "MySQL administrative password is required"
+  printf '\n' >&2
+fi
+[[ -n "$MARIADB_ROOT_PASSWORD" ]] || fail "MySQL administrative password is required"
+
 require_local_tools
 
 if [[ -z "$REMOTE_BENCH_PATH" ]]; then
@@ -333,17 +355,17 @@ if [[ "$EXECUTE" -eq 1 ]]; then
   LOCAL_PRIVATE="$(find "$LOCAL_BACKUP_DIR" -maxdepth 1 -name '*-private-files.tar' -print 2>/dev/null | xargs -r ls -t 2>/dev/null | head -1)" || true
 fi
 
-PASSWORD_FLAG=""
+DATABASE_ADMIN_FLAGS="--mariadb-root-username $(quote "$MARIADB_ROOT_USERNAME")"
 if [[ -n "$MARIADB_ROOT_PASSWORD" ]]; then
-  PASSWORD_FLAG="--mariadb-root-password $(quote "$MARIADB_ROOT_PASSWORD")"
+  DATABASE_ADMIN_FLAGS="$DATABASE_ADMIN_FLAGS --mariadb-root-password $(quote "$MARIADB_ROOT_PASSWORD")"
 fi
 
 if [[ ! -d "$LOCAL_SITE_DIR" ]]; then
-  local_exec "Creating local site: $LOCAL_SITE" "cd $(quote "$LOCAL_BENCH_PATH") && bench new-site $(quote "$LOCAL_SITE") --admin-password $(quote "$ADMIN_PASSWORD") $PASSWORD_FLAG"
+  local_exec "Creating local site: $LOCAL_SITE" "cd $(quote "$LOCAL_BENCH_PATH") && bench new-site $(quote "$LOCAL_SITE") --admin-password $(quote "$ADMIN_PASSWORD") $DATABASE_ADMIN_FLAGS"
 fi
 
 if [[ "$EXECUTE" -eq 1 && -n "${LOCAL_DB:-}" ]]; then
-  local_exec "Restoring database to $LOCAL_SITE" "cd $(quote "$LOCAL_BENCH_PATH") && bench --site $(quote "$LOCAL_SITE") restore $(quote "$LOCAL_DB") $PASSWORD_FLAG"
+  local_exec "Restoring database to $LOCAL_SITE" "cd $(quote "$LOCAL_BENCH_PATH") && bench --site $(quote "$LOCAL_SITE") restore $(quote "$LOCAL_DB") $DATABASE_ADMIN_FLAGS"
 fi
 
 local_exec "Cleaning old files directories" "
