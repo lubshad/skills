@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SERVER_HOST="${SERVER_HOST:-}"
-SERVER_USER="${SERVER_USER:-root}"
+SERVER_USER=""
 SERVER_PORT="${SERVER_PORT:-22}"
 SSH_KEY="${SSH_KEY:-personal}"
 
@@ -28,21 +28,21 @@ print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 
 usage() {
   cat <<EOF
-Usage: $0 --host HOST --app-name NAME --server-name NAME (--app-port PORT | --document-root PATH) [OPTIONS]
+Usage: $0 --host HOST --ssh-user USER --app-name NAME --server-name NAME (--app-port PORT | --document-root PATH) [OPTIONS]
 
-Set up nginx for a Docker app or a static site.
+Set up nginx routing for an application service or a static site.
 If --ssl-email is provided, the script also installs Certbot and configures
 Let's Encrypt SSL for every domain in --server-name.
 
 Required:
   --host HOST             Remote server host/IP
+  --ssh-user USER         Remote SSH login user
   --app-name NAME         Nginx site name, e.g. coreaxis
   --server-name NAME      Nginx server_name value, e.g. "example.com www.example.com"
-  --app-port PORT         Local Docker host port nginx proxies to, e.g. 3100
+  --app-port PORT         Local service port nginx proxies to, e.g. 3100
   --document-root PATH    Static site directory nginx serves directly, e.g. /var/www/zeronic
 
 Options:
-  --ssh-user USER         Remote SSH login user (default: $SERVER_USER)
   --ssh-key PATH          SSH private key path (default: $SSH_KEY)
   --ssh-port PORT         SSH port (default: $SERVER_PORT)
   --ssl-email EMAIL       Enable Let's Encrypt SSL using this email
@@ -53,8 +53,8 @@ Options:
   -h, --help              Show this help
 
 Examples:
-  $0 --host coreaxissolutions.in --app-name coreaxis --server-name "coreaxissolutions.in www.coreaxissolutions.in" --app-port 3100 --ssl-email admin@coreaxissolutions.in --ssh-key personal
-  $0 --host coreaxissolutions.in --app-name masarnext --server-name masar.example.com --app-port 3200
+  $0 --host coreaxissolutions.in --ssh-user root --app-name coreaxis --server-name "coreaxissolutions.in www.coreaxissolutions.in" --app-port 3100 --ssl-email admin@coreaxissolutions.in --ssh-key personal
+  $0 --host coreaxissolutions.in --ssh-user dockeruser --app-name masarnext --server-name masar.example.com --app-port 3200
   $0 --host 203.0.113.10 --app-name zeronic --server-name "zeronic.app www.zeronic.app" --document-root /var/www/zeronic --ssl-email admin@zeronic.app --ssh-user dockeruser --ssh-key personal
 EOF
 }
@@ -238,6 +238,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$SERVER_HOST" ]] || fail "--host is required"
+[[ -n "$SERVER_USER" ]] || fail "--ssh-user is required"
 [[ -n "$APP_NAME" ]] || fail "--app-name is required"
 
 if [[ "$CHECK_ONLY" -eq 0 && "$RELOAD_ONLY" -eq 0 && "$TEST_ONLY" -eq 0 && "$REMOVE_CONFIG" -eq 0 ]]; then

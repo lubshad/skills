@@ -97,6 +97,17 @@
     ]
   },
   {
+    "scenario": "Browser-hosted mobile app concept with a desktop client journey navigator, realistic device frame, and installable PWA fallback",
+    "skills": [
+      "frontend-device-layout",
+      "frontend-mobile-app-prototyping",
+      "frontend-interaction-patterns",
+      "frontend-button-clicks",
+      "nextjs-responsive-scaling",
+      "nextjs-page-performance"
+    ]
+  },
+  {
     "scenario": "Task not covered by any existing skill, or asked to create/update a workspace skill",
     "skills": [
       "skill-updates"

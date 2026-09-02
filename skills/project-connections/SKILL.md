@@ -105,6 +105,21 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 | Frappe site | `sites/xealth.localhost` | Local Xealth target site |
 | API base URL (dev) | `http://xealth.localhost:8000` | Local Frappe API host |
 
+## Sync Project
+
+| Component | Location | Role |
+|-----------|----------|------|
+| Backend | `apps/sync/` | Frappe app for Sync customizations and APIs |
+| Web frontend | `next_apps/sync/` | Next.js web application |
+| Frappe site | `sites/sync.localhost` | Local Sync target site |
+| API base URL (dev) | `http://sync.localhost:8000` | Local Frappe API host |
+| Concept 1 PWA | `next_apps/sync/concept-1/` | Static installable prototype at `http://sync.localhost:3001` |
+
+### Sync Local Frontend
+
+- Run each Next.js development server with hostname `sync.localhost`, not `localhost` or `127.0.0.1`, so future Frappe CORS, session cookies, and Socket.IO share the site hostname.
+- Reserve ports `3001`, `3002`, and `3003` for Sync concepts 1, 2, and 3 respectively.
+
 ## Zeronic Project
 
 | Component | Location | Role |
@@ -116,6 +131,16 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 | Web frontend URL (dev) | `http://zeronic.localhost:8080` | Run with `npm run dev`; matches the Frappe hostname for CORS, session cookies, and Socket.IO |
 | Backend host (prod) | `zeronic.coreaxissolutions.in` | Production Frappe host and site |
 | Backend deploy | `apps/zeronic/.github/workflows/deploy-production.yml` | GitHub Actions deploys pushes promoted by `apps/zeronic/goproduction` to the `production` branch |
+
+## Usafe Project
+
+| Component | Location | Role |
+|-----------|----------|------|
+| Backend | `apps/usafe/` | Frappe app for Usafe customizations and APIs |
+| Web frontend | `react_apps/Usafe/` | Vite/React public Usafe application |
+| Frappe site | `sites/usafe.localhost` | Local Usafe target site |
+| API base URL (dev) | `http://usafe.localhost:8000` | Set via `VITE_API_BASE_URL` in the React app's `.env.development` |
+| Web frontend URL (dev) | `http://usafe.localhost:8080` | Run with `npm run dev`; matches the Frappe hostname for CORS, session cookies, and Socket.IO |
 
 ## Environment Config
 

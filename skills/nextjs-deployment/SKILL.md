@@ -5,16 +5,16 @@ description: Use when changing Next.js deployment scripts, nginx setup, PM2 conf
 
 # Next.js Deployment
 
-Use this skill when explaining, creating, or updating deployment scripts for the Next.js web app under `next_apps/masarnext/`.
+Use this skill when explaining, creating, or updating deployment workflows and server setup for Next.js applications in this workspace.
 
 ## When To Apply
 
-- Creating or updating `next_apps/masarnext/deploy.sh`
-- Creating or updating `next_apps/masarnext/setup_nginx.sh`
-- Explaining how the Masar Next.js app is deployed
+- Creating or updating a Next.js deployment script or GitHub Actions workflow
+- Creating or updating Next.js nginx, PM2, or production runtime setup
+- Explaining how a workspace Next.js application is deployed
 - Adjusting frontend host, SSH key, app directory, PM2 process, or nginx proxy settings
 
-## Bench Paths
+## Masar Paths
 
 - Web app root: `next_apps/masarnext/`
 - Deploy script: `next_apps/masarnext/deploy.sh`
@@ -23,7 +23,17 @@ Use this skill when explaining, creating, or updating deployment scripts for the
 - Nginx vhost template: `next_apps/masarnext/nginx_configuration`
 - SSH helper: `next_apps/masarnext/sshmain.sh`
 
-## Current Project Defaults
+## New Service Defaults
+
+- Deploy new applications under the SSH user's home directory as `$HOME/<app-name>`.
+- Resolve the remote `$HOME` over SSH and use the resulting absolute path. Do not assume the home is `/home/<user>`.
+- Run the standalone server and PM2 as the same SSH deployment user so routine artifact sync and restart operations do not require `sudo`.
+- Use an app-specific loopback port and proxy it through nginx; nginx does not require the application to live under `/var/www`.
+- Keep `.env.production` server-managed at `$HOME/<app-name>/.env.production` unless the project explicitly chooses another environment strategy.
+- Install PM2 under `$HOME/.local` when global package installation would require elevated permissions, and include `$HOME/.local/bin` in the remote `PATH`.
+- Configure nginx, TLS, and PM2 boot startup separately as one-time privileged server setup.
+
+## Masar Legacy Defaults
 
 - Public frontend host: `masardevelopment.conceptiqs.com`
 - Remote SSH user: `root`
@@ -41,7 +51,8 @@ Use this skill when explaining, creating, or updating deployment scripts for the
 - Validate required local tools and paths before building or syncing
 - When creating or materially updating a frontend deploy script, include an app-local `version_increment.sh` and call it before building unless the deploy is `--deploy-only`.
 - Default deploy behavior should increment the patch or build metadata conservatively according to the project's existing version format; support an explicit skip flag such as `--no-version-increment`
-- Build locally with `npm ci` and `npm run build`
+- Build with `npm ci` and `npm run build`; GitHub Actions deployments build in CI, while explicit local deploy scripts build locally
+- Pin the npm version in `package.json` through `packageManager` and install that exact version in CI before `npm ci`; do not rely on the npm version bundled with the selected Node runner image.
 - Use Next.js standalone output for deployment bundles
 - Sync only deployable runtime artifacts to the server
 - Sync `.next/standalone`, `.next/static`, `public/`, and the runtime start script
@@ -62,6 +73,7 @@ Use this skill when explaining, creating, or updating deployment scripts for the
 
 - For script-only changes, run `bash -n deploy.sh version_increment.sh setup_nginx.sh` for the scripts that exist.
 - Verify `version_increment.sh --dry-run` after creating or changing the version increment script.
+- Run the clean install and production build with the package-manager version declared by the project.
 
 ## Nginx Pattern
 
@@ -79,7 +91,7 @@ Use this skill when explaining, creating, or updating deployment scripts for the
 
 - Read the backend URL from `.env.production` at runtime.
 - Do not hardcode the API base URL inside deployment scripts.
-- Production `.env.production` is server-managed by default and stays on the remote host, normally at `/var/www/masarnext/.env.production`.
+- Production `.env.production` is server-managed by default and stays in the remote application root. New services normally use `$HOME/<app-name>/.env.production`; Masar retains `/var/www/masarnext/.env.production` as an existing project-specific path.
 - Do not sync a repo or local `.env.production` to production unless the user explicitly asks for a deploy-managed env strategy.
 - If the user explicitly chooses deploy-managed env, validate that the env file is intentional before syncing it.
 
@@ -97,3 +109,4 @@ Use this skill when explaining, creating, or updating deployment scripts for the
 - This skill is frontend-only and should not run Frappe bench commands
 - Use `project-connections.md` for the current frontend and backend host mapping
 - If the SSH key path is ambiguous, prefer making it configurable via `--ssh-key`
+- Preserve Masar's existing `/var/www/masarnext` path unless a separate migration is explicitly approved.

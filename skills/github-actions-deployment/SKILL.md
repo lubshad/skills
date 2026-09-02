@@ -35,19 +35,33 @@ Use this skill when creating or updating GitHub Actions workflows that build, re
 - Build in GitHub Actions, not on a developer machine
 - Deploy built artifacts, not an unbuilt source tree, unless the platform explicitly requires remote builds
 - Prefer `actions/setup-node` with the project’s required Node version and npm cache
+- Declare the package manager and exact version in `package.json` (for example, `"packageManager": "npm@11.6.2"`) and install that version in CI before `npm ci`. The lockfile generator and CI installer must use the same package-manager version to avoid optional-dependency and lockfile compatibility failures.
 - For standalone Next.js deploys, sync only runtime artifacts such as `.next/standalone`, `.next/static`, `public/`, and the runtime launcher
 - Keep production environment values server-managed unless the user explicitly asks for a GitHub-managed env strategy
 - Do not copy repo `.env.production` to the server when the chosen contract is server-managed env
 
 ## SSH Deploy Rules
 
-- Read SSH host, user, key, and optional port from GitHub Secrets
+- Keep the private SSH key in GitHub Secrets. Prefer repository or environment variables for non-sensitive values such as SSH host, SSH user, public URL, and optional port; use secrets for those values only when the deployment contract treats infrastructure metadata as confidential.
 - Keep private keys scoped to only the validation and SSH setup steps; do not expose them as job-wide environment variables
 - Write the private key to a temporary file in the runner and lock its permissions
 - Seed `known_hosts` with `ssh-keyscan` before `ssh` or `rsync`
 - Verify required remote directories and runtime prerequisites before syncing files
 - Restart the process manager only after a successful artifact sync
 - Run a local remote health check after restart so the workflow fails on a broken deployment
+- Require public health-check and GitHub environment URLs to be absolute `http://` or `https://` URLs, not bare hostnames.
+
+## User-Owned Application Services
+
+Use this pattern for long-running application services such as standalone Next.js or Node.js applications deployed over SSH:
+
+- Default new deployments to a directory owned by the SSH deployment user, normally `$HOME/<app-name>`, instead of `/var/www/<app-name>`.
+- Resolve `$HOME` on the remote server over SSH and then use the resulting absolute path for `ssh`, `rsync`, process-manager working directories, and server-managed environment files. Do not construct `/home/<user>` because root and custom user homes differ.
+- Keep application files, release artifacts, runtime environment files, and process-manager state owned by the deployment user. Routine deployments should not require `sudo`.
+- Run PM2 or the selected process manager as the same deployment user. Install user-scoped tools under `$HOME/.local` when practical and include `$HOME/.local/bin` in non-interactive SSH `PATH`.
+- Keep nginx virtual hosts, TLS certificates, firewall rules, and PM2/systemd boot registration as separate one-time server setup. Nginx proxies to the loopback application port and does not require application files under `/var/www`.
+- Preserve an existing `/var/www`, `/opt`, or system-user layout when it is already deployed or explicitly required; do not migrate persisted production paths without approval.
+- Keep server-managed `.env.production` in the user-owned application root and copy or link it into the active release only when the runtime requires that location.
 
 ## Pipecat Systemd Deployments
 
@@ -157,6 +171,7 @@ It supports optional `FLUTTER_WEB_SSH_PORT`, `FLUTTER_WEB_REMOTE_PATH`, and
 - Parse or lint the workflow YAML when tooling is available.
 - Run `bash -n goproduction` and verify it refuses dirty worktrees, detached HEAD, `production`, and `production-backup`.
 - Verify every referenced secret and variable is documented.
+- Verify the declared package-manager version matches the CI setup and that its clean install command succeeds locally.
 - For Frappe workflows, confirm private keys are step-scoped and local credential files are excluded from source sync.
 - Run the same production build command locally when build flags, entrypoints,
   generated assets, or compile-time definitions change.
