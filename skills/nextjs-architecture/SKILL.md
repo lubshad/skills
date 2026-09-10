@@ -5,6 +5,8 @@ description: Use when changing Next.js masarnext project structure, feature modu
 
 Follow these architecture rules strictly when working on the Next.js app (`next_apps/masarnext/`):
 
+For networking changes, read `frontend-api-client.md` first. It owns shared transport/auth behavior; this adapter owns existing Next.js helpers and browser/server boundaries.
+
 ## Project Structure
 
 ```
@@ -49,6 +51,10 @@ API routes in `src/app/api/` mirror feature boundaries:
 
 - **`frappeClient.ts`** — Single Frappe API client. Use `callAuthedMethod` for authenticated JSON calls, `callAuthedFormData` for file uploads, `callGuestMethod` for unauthenticated calls. Never duplicate these patterns inside features.
 - **`apiBaseUrl.ts`** — `getApiBaseUrl()` and `normalizeAssetUrl()`. Always import from here; never redeclare.
+
+- Inject authentication metadata centrally in the existing client helpers, not in each feature or route. Preserve explicit guest/authenticated operations and multipart support.
+- Browser clients read current credentials at dispatch time. Server clients receive credentials scoped to the incoming request; never put a user's credentials in shared mutable defaults or cross-user caches.
+- Validate backend destinations and keep third-party requests separate. Apply the shared unauthorized-response rules in the browser auth layer, not through server-side global state.
 
 ## Shared Data (`src/data/`)
 

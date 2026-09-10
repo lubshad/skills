@@ -5,20 +5,27 @@ description: Use when adding or changing Flutter API calls, Dio clients, reposit
 
 Follow these networking rules strictly when working on Flutter code.
 
+Read `frontend-api-client.md` first for shared client ownership, auth modes, credential safety, and concurrent-expiration rules. This adapter owns Dio implementation details. For Frappe managed-device auth, also read `frappe-api-contracts.md`.
+
 ## HTTP Client
 
 Use **Dio** as the sole HTTP client.
+
+- Keep a configured Dio instance per backend boundary. Repositories must not create their own instances or assemble auth headers per request.
+- Use request interceptors to read current credentials and apply an explicit auth mode from request options (`extra`). Protect client-owned headers from overrides.
+- Handle unauthorized responses in a shared error interceptor, comparing the request's credential snapshot/generation before expiring auth. Deduplicate concurrent expiration events.
+- Restrict credential-bearing destinations and redirect behavior. Keep third-party HTTP calls separate.
 
 ## Setup
 
 - Retrieve base URL and configuration from the **app config** (loaded per environment).
 - For local Frappe sites on mobile devices and emulators/simulators, do not use `*.localhost` as the request URL because mobile operating systems often cannot resolve it to the host machine. Instead, put the host's bridge IP or local network IP in app config (e.g., `http://10.0.2.2:8000` for Android emulators, or `http://192.168.x.x:8000` for iOS simulators/real devices). To ensure Frappe routes the request to the correct site locally, apply the `X-Frappe-Site-Name` header for ALL local environments (e.g., `X-Frappe-Site-Name: example.localhost`), not just Android. Prefer `X-Frappe-Site-Name` over a custom `Host` header because WebViews may ignore `Host` overrides while Frappe explicitly checks `X-Frappe-Site-Name`. Keep this platform/site decision in app config; the Dio client or WebView wrapper should only consume generic config values such as `apiBaseUrl` and `apiHeaders`.
 - Set Dio `extra: {'withCredentials': false}` for token-auth Flutter web apps such as Masar Admin. Use `withCredentials: true` only for cookie-based auth.
-- Add `dio_pretty_logger` as an interceptor for request/response logging.
+- Add `dio_pretty_logger` for debug-only request/response logging, with credential headers and sensitive bodies redacted or omitted.
 - Add a fake 1-second Dio request delay in debug mode only for admin app API testing; never apply this delay in profile or release builds.
 - For Frappe sites with `flutter_utils` installed, use token authentication from `flutter_utils` instead of Frappe's built-in `/api/method/login` session flow.
-- For `flutter_utils` auth, call `POST /api/method/flutter_utils.api.auth.login` with JSON body `{ "usr": username, "pwd": password }`, store the returned `api_key` and `api_secret`, and send authenticated requests with `Authorization: token <api_key>:<api_secret>`.
-- Do not send the `Authorization` header to `flutter_utils.api.auth.*` endpoints; those auth endpoints are guest-accessible and issue credentials.
+- For managed `flutter_utils` auth, call `POST /api/method/flutter_utils.api.auth.login` with JSON body `{ "usr": username, "pwd": password, "device_id": installationUuid }` and optional `device_name`. Persist the returned `api_key`, `api_secret`, and `authorization_source` together. The interceptor sends both `Authorization` and `Frappe-Authorization-Source` according to the contract.
+- Mark login, token exchange, and OTP issuance/verification public explicitly. Do not exclude all `flutter_utils.api.auth.*` endpoints from authentication: `logout_device` requires the current managed credential.
 - Verify an existing stored token by calling an authenticated endpoint such as `GET /api/method/frappe.auth.get_logged_user`; if it returns `Guest` or `401`, clear local auth state and route to login.
 
 ## Frappe Socket.IO
@@ -63,3 +70,10 @@ Screen → BLoC → Repository → Dio (API Client)
 - On web, convert authenticated bytes to a blob URL and set a useful MIME type from response headers, file signature, attachment name, or URL extension before opening the blob.
 - Pass `attachmentName` when available so MIME fallback and browser handling are more reliable.
 - Keep non-web behavior as external app opening unless there is a platform-specific viewer requirement.
+
+## Verification
+
+- Verify repositories share the configured Dio client and do not manually attach auth headers.
+- Cover public login, managed-credential reads, authenticated logout, concurrent 401s, and stale failures after re-login.
+- Preserve multipart handling, cancellation, local site routing, and web cookie policy.
+- Follow the shared client's verification checklist and run focused Flutter tests and analysis.

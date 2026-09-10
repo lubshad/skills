@@ -45,6 +45,17 @@ Follow these API contract rules strictly when working on Frappe-backed features.
 
 ## Shared Patterns
 
+### Managed Device Authentication
+
+- Frontend implementation follows `frontend-api-client.md`; headers belong in the backend-scoped client, not individual endpoints.
+- For `flutter_utils` managed token login, send a random installation UUID as `device_id`, generated once and persisted per installation/browser profile. Do not use hardware identifiers or generate a new ID on each login. `device_name` is optional display metadata.
+- Persist `api_key`, `api_secret`, and returned `authorization_source` together. For managed credentials, the source is `Flutter Device Credential`.
+- Every managed-token request sends `Authorization: token <api_key>:<api_secret>` and `Frappe-Authorization-Source: Flutter Device Credential`. Without the source header, Frappe searches User credentials and rejects a device key.
+- Existing User-based tokens without a source can omit the source header where that persisted format is still supported. Do not guess that every old key is a device key.
+- Login/token exchange and OTP issuance are explicitly public. `flutter_utils.api.auth.logout_device` is authenticated; do not classify access by the common auth namespace.
+- Cookie-session APIs remain a distinct contract, including cookie transmission and CSRF protection. Do not silently convert them to token APIs.
+- Verify login AND a subsequent authenticated read against the deployed schema. Mocked credential issuance alone cannot detect missing DocTypes or omitted request headers.
+
 - Put reusable response-building logic in shared private helpers instead of repeating payload assembly in each whitelisted method.
 - When a feature has both read and write endpoints, prefer one serializer/helper so all flows return the same normalized shape.
 

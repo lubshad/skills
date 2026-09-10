@@ -12,6 +12,8 @@ Reference map for all apps, sites, and their connections in this bench.
 | `sites/mcal.localhost` | Exam management system |
 | `sites/masar.localhost` | Masar sports platform |
 | `sites/omor.localhost` | Omor ERPNext/Frappe accounting site |
+| `sites/sync-dating.localhost` | Sync Dating Frappe app site |
+| `sites/usafe-safety.localhost` | Usafe Safety Frappe app site |
 | `sites/xealth.localhost` | Xealth Frappe app site |
 
 ## Local Frontend Networking Standard
@@ -19,6 +21,26 @@ Reference map for all apps, sites, and their connections in this bench.
 **Crucial Standard:** When developing local frontend web applications (Next.js, Flutter Web, React, etc.) that connect to a local Frappe backend, **you must run the frontend development server using the exact same hostname as the Frappe site**, but on a different port.
 
 **Do not use `localhost` or `127.0.0.1`** as the frontend dev server host. Instead, use the Frappe site's hostname (e.g., `masar.localhost`, `mcal.localhost`).
+
+**Reserved URLs are mandatory:** Always use the local frontend hostname and port assigned in the registry below when running, testing, debugging, previewing, or performing agentic browser work. This includes Playwright and any other browser automation. Do not use a framework default, choose a temporary port, or silently fall back to another port. If the assigned port is occupied, stop the conflicting process or report the conflict. Add every new browser frontend to this registry with a unique port before running it locally.
+
+### Local Frontend URL Registry
+
+| Project surface | Required local URL | Local run command |
+|-----------------|--------------------|-------------------|
+| Masar web | `http://masar.localhost:3000` | `./run_masar_next.sh` |
+| Sync Dating concept 1 | `http://sync-dating.localhost:3001` | Run `npm run dev` in `next_apps/sync_dating/concept-1/` |
+| Sync Dating concept 2 | `http://sync-dating.localhost:3002` | Reserved; use this URL when the concept is added |
+| Sync Dating concept 3 | `http://sync-dating.localhost:3003` | Reserved; use this URL when the concept is added |
+| Usafe Safety admin | `http://usafe-safety.localhost:3004` | Run `npm run dev` in `react_apps/UsafeSafety/` |
+| Omor admin | `http://omor.localhost:3005` | Run Flutter web with `--web-hostname omor.localhost --web-port 3005` |
+| Masar admin | `http://masar.localhost:8001` | `./run_masar_admin.sh` |
+| Zeronic web | `http://zeronic.localhost:8080` | Run `npm run dev` in `react_apps/zeronic/` |
+| Exam admin | `http://mcal.localhost:8081` | `./run_lms_admin.sh mcal local --port 8081 -- --web-hostname mcal.localhost` |
+| Exam student | `http://mcal.localhost:8082` | `./run_lms_student.sh mcal local --port 8082 -- --web-hostname mcal.localhost` |
+| Xealth admin | `http://xealth.localhost:8085` | `./run_xealth_admin.sh --env local` |
+
+Native mobile applications do not have a browser URL. Run them on their assigned simulator or device and keep their API endpoint from the project environment configuration.
 
 **Why this standard exists:**
 1. **CORS & Cookies:** Keeps the browser origin strictly aligned with the backend, allowing CORS rules and Frappe's session cookies (`sid`) to function seamlessly without complex proxy configurations.
@@ -38,6 +60,7 @@ Reference map for all apps, sites, and their connections in this bench.
 | Web frontend | `next_apps/masarnext/` | Next.js app (App Router, TypeScript, CSS Modules) |
 | Admin frontend | `flutter_apps/masar_admin/` | Flutter web admin app |
 | API base URL (dev) | `http://masar.localhost:8000` | Set via `MASAR_API_BASE_URL` env var |
+| Web local URL | `http://masar.localhost:3000` | Required URL for local runs, tests, and Playwright |
 | Admin local URL | `http://masar.localhost:8001` | Run with `run_masar_admin.sh` or `flutter_apps/masar_admin/run.sh`; keeps browser origin aligned with Frappe Socket.IO host |
 | Frappe Socket.IO (local) | `http://masar.localhost:9000/masar.localhost` | Local Flutter Socket.IO URL: socket base `http://masar.localhost:9000` plus site namespace `/masar.localhost`. |
 | Admin Socket.IO host (prod) | `masaradmin.conceptiqs.com` | Production Flutter Socket.IO connects to `https://masaradmin.conceptiqs.com/masarbackend.conceptiqs.com`; only the socket base host differs from API. |
@@ -77,6 +100,8 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 | Mobile local API (non-Android) | `http://0.0.0.0:8000/api/` | Local backend API used by Flutter outside the Android emulator |
 | Mobile local API (Android emulator) | `http://10.0.2.2:8000/api/` | Android emulator address for the local backend API |
 | Admin local API | `http://localhost:8001/api/` | Local backend API used by the Flutter web admin app |
+| Admin local URL | `http://omor.localhost:3005` | Required URL for local runs, tests, and Playwright |
+| Mobile local URL | N/A | Native app; run on a simulator or device |
 | Backend host (prod) | `https://api.omor.com.sa` | Production Django API host |
 | Admin host (prod) | `https://admin.omor.com.sa` | Production admin frontend host |
 
@@ -94,7 +119,10 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 |-----------|----------|------|
 | Backend | `apps/exam/exam/` | Frappe app for exam logic |
 | Admin frontend | `flutter_apps/lms_admin/` | Flutter app for administrators |
-| Student frontend | `flutter_apps/lsm_student/` | Flutter app for students taking exams |
+| Student frontend | `flutter_apps/lms_student/` | Flutter app for students taking exams |
+| API base URL (dev) | `http://mcal.localhost:8000` | Local MCAL Frappe API host |
+| Admin local URL | `http://mcal.localhost:8081` | Required URL for local runs, tests, and Playwright |
+| Student local URL | `http://mcal.localhost:8082` | Required URL for local runs, tests, and Playwright |
 
 ## Xealth Project
 
@@ -104,20 +132,21 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 | Admin frontend | `flutter_apps/xealth_admin/` | Flutter shift management admin panel |
 | Frappe site | `sites/xealth.localhost` | Local Xealth target site |
 | API base URL (dev) | `http://xealth.localhost:8000` | Local Frappe API host |
+| Admin local URL | `http://xealth.localhost:8085` | Required URL for local runs, tests, and Playwright |
 
 ## Sync Project
 
 | Component | Location | Role |
 |-----------|----------|------|
-| Backend | `apps/sync/` | Frappe app for Sync customizations and APIs |
-| Web frontend | `next_apps/sync/` | Next.js web application |
-| Frappe site | `sites/sync.localhost` | Local Sync target site |
-| API base URL (dev) | `http://sync.localhost:8000` | Local Frappe API host |
-| Concept 1 PWA | `next_apps/sync/concept-1/` | Static installable prototype at `http://sync.localhost:3001` |
+| Backend | `apps/sync_dating/` | Frappe app for Sync Dating customizations and APIs |
+| Web frontend | `next_apps/sync_dating/` | Next.js web application |
+| Frappe site | `sites/sync-dating.localhost` | Local Sync Dating target site |
+| API base URL (dev) | `http://sync-dating.localhost:8000` | Local Frappe API host |
+| Concept 1 PWA | `next_apps/sync_dating/concept-1/` | Static installable prototype at `http://sync-dating.localhost:3001`; required URL for local runs, tests, and Playwright |
 
 ### Sync Local Frontend
 
-- Run each Next.js development server with hostname `sync.localhost`, not `localhost` or `127.0.0.1`, so future Frappe CORS, session cookies, and Socket.IO share the site hostname.
+- Run each Next.js development server with hostname `sync-dating.localhost`, not `localhost` or `127.0.0.1`, so future Frappe CORS, session cookies, and Socket.IO share the site hostname.
 - Reserve ports `3001`, `3002`, and `3003` for Sync concepts 1, 2, and 3 respectively.
 
 ## Zeronic Project
@@ -132,15 +161,15 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 | Backend host (prod) | `zeronic.coreaxissolutions.in` | Production Frappe host and site |
 | Backend deploy | `apps/zeronic/.github/workflows/deploy-production.yml` | GitHub Actions deploys pushes promoted by `apps/zeronic/goproduction` to the `production` branch |
 
-## Usafe Project
+## Usafe Safety Project
 
 | Component | Location | Role |
 |-----------|----------|------|
-| Backend | `apps/usafe/` | Frappe app for Usafe customizations and APIs |
-| Web frontend | `react_apps/Usafe/` | Vite/React public Usafe application |
-| Frappe site | `sites/usafe.localhost` | Local Usafe target site |
-| API base URL (dev) | `http://usafe.localhost:8000` | Set via `VITE_API_BASE_URL` in the React app's `.env.development` |
-| Web frontend URL (dev) | `http://usafe.localhost:8080` | Run with `npm run dev`; matches the Frappe hostname for CORS, session cookies, and Socket.IO |
+| Backend | `apps/usafe_safety/` | Frappe app for Usafe Safety customizations and APIs |
+| Web frontend | `react_apps/UsafeSafety/` | Vite/React public Usafe Safety application |
+| Frappe site | `sites/usafe-safety.localhost` | Local Usafe Safety target site |
+| API base URL (dev) | `http://usafe-safety.localhost:8000` | Set via `VITE_API_BASE_URL` in the React app's `.env.development` |
+| Admin frontend URL (dev) | `http://usafe-safety.localhost:3004` | Run with `npm run dev`; required URL for local runs, tests, and Playwright |
 
 ## Environment Config
 
@@ -159,5 +188,7 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 ## Verification
 
 - Verify each configured URL resolves from its intended local or production client environment.
+- Verify each browser frontend uses its registry hostname and port for manual tests and Playwright; fail rather than accepting an automatic fallback port.
+- Verify no two entries in the local frontend URL registry reserve the same port.
 - Verify public, private, and app-asset file URLs use the correct shared normalization path.
 - Verify secrets remain in runtime configuration and never enter committed source or client-visible payloads.

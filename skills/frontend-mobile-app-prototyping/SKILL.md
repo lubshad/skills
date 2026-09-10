@@ -60,12 +60,17 @@ Exact paths and syntax belong to the selected platform adapter.
 
 ## Desktop Client Review Shell
 
-The desktop presentation uses two stable areas:
+The desktop presentation uses three stable columns when review settings and journey navigation are both present:
 
-- A fixed left-side journey navigator.
-- A device presentation area containing the interactive mobile application.
+- **Review settings:** branding, a short concept introduction, concept and role/persona selectors, scenario controls, and reset-demo action.
+- **Screen journey:** a dedicated full-height, independently scrolling screen/task navigator, with an active-screen indicator and current position/total count.
+- **Device preview:** the interactive mobile application, complete device frame, model label, and previous/next controls in the remaining space.
 
-The journey navigator should include:
+Do not squeeze a long journey list below settings, introductory copy, and scenario controls in a single sidebar. Group journey entries by product phase or role when useful, preserving their sequence and direct navigation. Settings content scrolls independently when expanded scenarios exceed its available height; keep reset and journey progress reachable.
+
+Use compact, readable sidebar widths before reducing device space. Provide an accessible settings-panel toggle in the journey header so narrower desktop windows can retain journey navigation and a useful preview. Collapsing or expanding settings must re-fit the device without remounting or resetting the app. At the mobile/tablet fallback, hide both review sidebars and remove desktop column constraints.
+
+The review sidebars collectively should include:
 
 - Product and concept identity.
 - A short direction or review description.
@@ -102,7 +107,7 @@ Detailed browser implementation guidance lives in `references/browser-device-fra
 
 The app inside the device retains the exact logical viewport and aspect ratio from the device profile.
 
-On desktop review surfaces only, the complete device presentation may be uniformly scaled to fit the available height. This is an exception to the normal no-transform-scaling product-layout rule because it scales a presentation artifact, not the product UI's responsive layout.
+On desktop review surfaces only, size the complete device presentation from the actual available width and height. Uniformly scale it down when needed. This is an exception to the normal no-transform-scaling product-layout rule because it scales a presentation artifact, not the product UI's responsive layout.
 
 - Scale chassis, bezel, app viewport, cutout, and controls as one unit.
 - Reserve the post-scale width and height in layout; transforms alone do not change document flow.
@@ -111,9 +116,14 @@ On desktop review surfaces only, the complete device presentation may be uniform
 - Never crop the bottom chassis to preserve a larger preview.
 - Never stretch width and height independently.
 - Keep the model label and previous/next controls outside the scaled unit.
-- Use bounded desktop height classes or a measured container, not browser zoom.
+- Bound the desktop review shell to the available browser viewport, not only a minimum height. Reserve label, previous/next controls, padding, and gaps before measuring the remaining device area.
+- Calculate `scale = min(1, available width / unscaled outer width, available height / unscaled outer height)`. Include clearance for protruding hardware controls. Use actual unscaled chassis dimensions, not transformed bounds or only the inner screen dimensions.
+- Recalculate when available space or chassis dimensions change, including window resizing, browser zoom, font loading, device changes, and review-shell layout changes. Do not use fixed scale presets or height breakpoints as the final fitting mechanism, and never require users to zoom out to see the complete device.
+- Keep fitting in the review layer; it must not remount the product app or reset its state. Clear desktop sizing overrides when entering the mobile layout and recalculate when returning to desktop.
 
 ## Mobile And PWA Behavior
+
+Follow the shared Safe Areas rules and verification in `frontend-device-layout.md` for both prototypes and production PWAs. Preview-specific behavior belongs here; browser implementation belongs in the platform adapter.
 
 On actual mobile and tablet-width browsers:
 
@@ -121,10 +131,12 @@ On actual mobile and tablet-width browsers:
 - Remove the decorative hardware frame.
 - Hide simulated operating-system chrome, including prototype status bars, clocks, signal indicators, and home indicators. These belong only to the desktop device preview.
 - Render the product edge-to-edge at the real browser viewport.
-- Respect safe-area insets for fixed headers, bottom actions, navigation, and media controls.
-- For an edge-to-edge iOS standalone experience, use `viewport-fit=cover` and a translucent Apple status bar style, then let the active screen background paint behind the top safe area.
+- Use the shared bounded-app scroll behavior from `frontend-device-layout.md`. Review/frame wrappers must inherit the product viewport on mobile, not impose the desktop preview's dimensions.
+- Follow the platform adapter for viewport sizing, wrapper constraints, explicit scrollers, keyboard handling, and edge-to-edge metadata. For Next.js, these live in `nextjs-responsive-scaling.md` and apply equally to production PWAs; do not duplicate shell-height workarounds here.
 - Preserve top safe-area spacing after hiding a simulated status bar so product controls do not collide with a notch, Dynamic Island, or native status indicators.
+- Use the selected device profile's safe-area values only inside the desktop preview. Switch the shared content-clearance source to native browser insets on actual devices; do not carry preview offsets into the mobile/PWA layout.
 - Set the browser and manifest theme colors to an intentional product-shell color so browser chrome and launch transitions do not expose an unrelated dark strip.
+- Keep page zoom available. Do not set `user-scalable=no`, restrictive maximum-scale values, or `touch-action: none`; document scroll locking must not prevent pinch zoom or visual-viewport panning.
 - Do not apply the desktop device-preview transform to the product UI.
 - Keep the journey usable through normal product navigation; review-only direct links may remain available.
 
@@ -159,14 +171,21 @@ Confirm that:
 - The displayed model name and logical viewport are accurate.
 - Scaling preserves the device aspect ratio and does not distort the product UI.
 - The scaled device reserves correct layout space.
+- Continuously resizing the window keeps the whole frame, side controls, label, and stepper visible without desktop document overflow. Include short laptop heights such as `540` and `600`, and sizes between the standard verification points.
+- Browser zoom at 125%, 150%, and 200%, increased default text size, loaded fonts, and device/profile changes trigger a correct fit or the intended mobile fallback. Verify actual element bounds rather than screenshots alone.
 - Previous and next controls remain visible and reachable.
 - The left journey navigator scrolls independently.
+- Settings and journey occupy separate desktop columns; expanding scenarios does not shorten the journey list. Verify grouped navigation, settings collapse/expand, persistent reset/progress controls, and device re-fitting. Both sidebars disappear at the mobile fallback, including when settings were previously collapsed.
 - Every journey entry opens the intended screen or state.
 - Reset restores deterministic demo state.
 - No content is obscured by a Dynamic Island, notch, home indicator, or unsafe edge.
+- Run the shared safe-area checks from `frontend-device-layout.md` and verify that changing preview device profiles changes content clearance without moving the shell.
 - Actual mobile and installed-PWA views show only native operating-system chrome, with no duplicate simulated status bar and no unintended dark safe-area strip.
+- The product background reaches every viewport edge while top and bottom controls remain inside their safe areas as dynamic browser chrome changes.
+- The document itself does not scroll or rubber-band; only designated content regions scroll, and fixed navigation remains stationary.
 - Mobile widths show no desktop navigator, device chassis, or presentation scaling.
 - PWA browser and standalone modes remain usable.
+- Pinch zoom and panning remain usable at 200% without losing access to controls.
 - Keyboard focus is visible and logical.
 - Reduced-motion preferences are respected.
 - Platform linting, type checks, tests, and production builds pass.

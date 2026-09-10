@@ -1,5 +1,17 @@
 [
   {
+    "scenario": "React Vite shared backend client and managed-device authentication",
+    "skills": ["frontend-api-client", "frappe-api-contracts", "api-parallelization"]
+  },
+  {
+    "scenario": "Flutter Dio shared client and managed-device authentication",
+    "skills": ["frontend-api-client", "flutter-networking", "frappe-api-contracts", "flutter-linting"]
+  },
+  {
+    "scenario": "Next.js browser and request-scoped server API clients",
+    "skills": ["frontend-api-client", "nextjs-architecture", "frappe-api-contracts", "api-parallelization"]
+  },
+  {
     "scenario": "Flutter admin listing with search, filters, pagination, and row actions",
     "skills": [
       "frontend-admin-panels",
@@ -111,6 +123,13 @@
     "scenario": "Task not covered by any existing skill, or asked to create/update a workspace skill",
     "skills": [
       "skill-updates"
+    ]
+  },
+  {
+    "scenario": "Production Next.js PWA safe-area layout in browser and installed standalone modes without a desktop device preview",
+    "skills": [
+      "frontend-device-layout",
+      "nextjs-responsive-scaling"
     ]
   }
 ]
