@@ -5,13 +5,13 @@ description: Use when a task is not clearly covered by an existing skill, or whe
 
 # Skill Updates
 
-This skill is a decision gate for keeping the workspace skill catalog complete. It triggers whenever the current task is not covered by an existing skill, and it governs how skills are created or updated in `.agents/skills/`.
+This skill is a decision gate for keeping the workspace skill catalog complete. The rules and skill index live in `.agents/AGENTS.md`, and indexed skills live at `.agents/skills/<name>/SKILL.md`. It triggers whenever the current task is not covered by an existing skill and governs how skills are created or updated.
 
 ## When This Skill Activates
 
 Run this check on every task before writing code or making changes:
 
-1. Scan the available skills (the skill table in `AGENTS.md` and the system-provided skill list).
+1. Scan the available skills (the skill table in `.agents/AGENTS.md` and the system-provided skill list).
 2. If at least one skill's "When to apply" clearly matches the task's domain or workflow, the task is covered — proceed normally, do not prompt.
 3. If no skill clearly covers the task, the task is uncovered — stop and run the Confirmation Flow below.
 
@@ -67,10 +67,10 @@ On confirmation, execute the chosen path below.
 
 A new or renamed skill is not active until it is indexed:
 
-1. Add a row to the correct table in `AGENTS.md`:
+1. Add a row to the correct table in `.agents/AGENTS.md`:
    - Platform-Agnostic Frontend UI, Flutter Implementation, Next.js Implementation, Backend And Frappe, Cross-Platform Technical, Workspace Workflow, or Compatibility Adapters.
    - Format: <code>| `name.md` | one-line "When to apply" description |</code>
-   - The `validate_skills.py` index check fails if any skill directory is absent from `AGENTS.md`.
+   - The `validate_skills.py` index check fails if any skill directory is absent from `.agents/AGENTS.md`.
 2. If the skill defines a multi-skill routing scenario, add an entry to `.agents/skills/routing-scenarios.json` with `scenario` and `skills` fields. The scenario validator fails if any listed skill is not an active skill directory.
 
 ## Validation
@@ -88,6 +88,6 @@ Quality warnings (long skills without a Verification section, platform specifics
 
 - `SKILL.md` frontmatter has `name` (matches directory) and `description` starting with "Use when".
 - No backtick `.md` references to skills that do not exist in `.agents/skills/`.
-- New or renamed skill is listed in the matching `AGENTS.md` table.
+- New or renamed skill is listed in the matching `.agents/AGENTS.md` table.
 - New routing scenarios in `routing-scenarios.json` reference only active skill directories.
 - Both validation scripts exit 0.

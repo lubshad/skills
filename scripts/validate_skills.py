@@ -131,7 +131,7 @@ def quality_warnings(skills_dir: Path) -> list[str]:
 
 
 def validate_agent_index(skills_dir: Path) -> list[str]:
-	agents_file = skills_dir.parent.parent / "AGENTS.md"
+	agents_file = skills_dir.parent / "AGENTS.md"
 	if not agents_file.is_file():
 		return [f"{agents_file}: cannot verify skill index because the file is missing"]
 
