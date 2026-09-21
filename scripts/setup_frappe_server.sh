@@ -9,6 +9,8 @@ SSH_USER="root"
 SSH_HOST=""
 SSH_PORT="22"
 SSH_KEY="$DEFAULT_SSH_KEY"
+SSH_CONTROL_DIR=""
+SSH_OPTIONS=()
 BENCH_USER="frappe"
 BENCH_DIR="/home/frappe/frappe-bench"
 FRAPPE_VERSION="16"
@@ -30,7 +32,7 @@ SSL_EMAIL=""
 APPS=()
 APP_BRANCHES=()
 INSTALL_APPS=()
-APT_PACKAGES="build-essential certbot curl git cron libfontconfig libffi-dev libjpeg-dev liblcms2-dev libldap2-dev libmariadb-dev libpq-dev libsasl2-dev libssl-dev mariadb-client mariadb-server nginx pkg-config redis-server sudo supervisor tzdata util-linux xvfb zlib1g-dev python3-certbot-nginx"
+APT_PACKAGES="build-essential certbot curl git cron libfontconfig1 libffi-dev libjpeg-dev liblcms2-dev libldap2-dev libmariadb-dev libpq-dev libsasl2-dev libssl-dev mariadb-client mariadb-server nginx pkg-config redis-server sudo supervisor tzdata util-linux xvfb zlib1g-dev python3-certbot-nginx"
 
 usage() {
   cat <<'USAGE'
@@ -92,11 +94,28 @@ ssh_target() {
 }
 
 ssh_args() {
-  local args=(-p "$SSH_PORT")
+  local args=("${SSH_OPTIONS[@]}" -p "$SSH_PORT")
   if [[ -n "$SSH_KEY" ]]; then
     args+=(-i "$SSH_KEY")
   fi
   printf '%q ' "${args[@]}"
+}
+
+cleanup_ssh() {
+  local user
+  for user in "$SSH_USER" "$BENCH_USER"; do
+    ssh "${SSH_OPTIONS[@]}" -p "$SSH_PORT" -O exit "$user@$SSH_HOST" >/dev/null 2>&1 || true
+  done
+  rmdir "$SSH_CONTROL_DIR" 2>/dev/null || true
+}
+
+setup_ssh() {
+  [[ "$EXECUTE" -eq 1 ]] || return 0
+  SSH_CONTROL_DIR="$(mktemp -d /tmp/frappe-setup-ssh.XXXXXXXX)"
+  SSH_OPTIONS=(-o ControlMaster=auto -o ControlPersist=600
+    -o "ControlPath=$SSH_CONTROL_DIR/%C"
+    -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=3)
+  trap cleanup_ssh EXIT
 }
 
 remote_shell() {
@@ -106,8 +125,8 @@ remote_shell() {
   target="$(ssh_target)"
 
   if [[ "$EXECUTE" -eq 1 ]]; then
-    printf '+ ssh %s%s %q\n' "$(ssh_args)" "$target" "bash -lc $(quote "$strict_command")"
-    local args=(-p "$SSH_PORT")
+    printf '+ Running setup step on %s\n' "$target"
+    local args=("${SSH_OPTIONS[@]}" -p "$SSH_PORT")
     if [[ -n "$SSH_KEY" ]]; then
       args+=(-i "$SSH_KEY")
     fi
@@ -129,7 +148,7 @@ remote_as_bench_user() {
   bench_home="/home/$BENCH_USER"
   local remote_command
   remote_command="set -euo pipefail; cd $bench_home && $command"
-  local args=(-p "$SSH_PORT")
+  local args=("${SSH_OPTIONS[@]}" -p "$SSH_PORT")
   if [[ -n "$SSH_KEY" ]]; then
     args+=(-i "$SSH_KEY")
   fi
@@ -545,6 +564,7 @@ done
 resolve_frappe_branch
 require_values
 require_local_tools
+setup_ssh
 
 printf 'Using Frappe branch: %s\n' "$FRAPPE_BRANCH"
 

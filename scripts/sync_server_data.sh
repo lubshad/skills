@@ -27,6 +27,8 @@ REMOTE_SITE=""
 LOCAL_SITE=""
 WITH_FILES=1
 SKIP_BACKUP=0
+SYNC_CONFIG=1
+CONFIG_KEYS=()
 ADMIN_PASSWORD="admin"
 MARIADB_ROOT_USERNAME=""
 MARIADB_ROOT_PASSWORD=""
@@ -56,6 +58,8 @@ Options:
   --local-bench PATH        Local bench root (default: auto-detected from script location)
   --skip-files              Skip public/private file sync
   --skip-backup             Skip remote backup (use existing latest backup)
+  --skip-config             Retain local configuration (skip encryption key sync)
+  --config-key KEY          Also sync this application setting (repeatable)
   --admin-password PASS     Local admin password for new site (default: admin)
   --mariadb-root-username USER
                             Local MariaDB administrator username (omit to be prompted)
@@ -204,6 +208,15 @@ while [[ $# -gt 0 ]]; do
       SKIP_BACKUP=1
       shift
       ;;
+    --skip-config)
+      SYNC_CONFIG=0
+      shift
+      ;;
+    --config-key)
+      [[ -n "${2:-}" && "$2" != --* ]] || fail "--config-key requires a key"
+      CONFIG_KEYS+=("$2")
+      shift 2
+      ;;
     --admin-password)
       ADMIN_PASSWORD="${2:-}"
       shift 2
@@ -235,6 +248,12 @@ if [[ -z "$REMOTE_HOST" ]]; then
 fi
 
 require_values
+if [[ "$SYNC_CONFIG" -eq 0 && ${#CONFIG_KEYS[@]} -gt 0 ]]; then
+  fail "--config-key cannot be combined with --skip-config"
+fi
+if [[ "$SYNC_CONFIG" -eq 1 ]]; then
+  command -v python3 >/dev/null 2>&1 || fail "python3 is required for configuration sync"
+fi
 [[ "$RETENTION_DAYS" =~ ^[1-9][0-9]*$ ]] || fail "--retention-days must be a positive whole number"
 
 if [[ -z "$MARIADB_ROOT_USERNAME" ]]; then
@@ -302,6 +321,7 @@ printf '\nFetching latest backup file list from remote...\n'
 LATEST_DB=""
 LATEST_PUBLIC=""
 LATEST_PRIVATE=""
+LATEST_CONFIG=""
 
 if [[ "$EXECUTE" -eq 1 ]]; then
   LATEST_DB="$(remote_capture "ls -t $REMOTE_BENCH_PATH/sites/$REMOTE_SITE/private/backups/*database.sql.gz 2>/dev/null | head -1")" || true
@@ -322,6 +342,15 @@ if [[ "$EXECUTE" -eq 1 && -z "${LATEST_DB:-}" ]]; then
   fail "No DB backup found on remote."
 fi
 
+if [[ "$SYNC_CONFIG" -eq 1 ]]; then
+  if [[ "$EXECUTE" -eq 1 ]]; then
+    LATEST_CONFIG="${LATEST_DB%database.sql.gz}site_config_backup.json"
+    remote_capture "test -f $(quote "$LATEST_CONFIG")" || fail "No configuration backup matching the database backup. Use --skip-config to explicitly retain local configuration."
+  else
+    printf '[dry-run] Would download and validate the configuration paired with the database; sync encryption_key and explicitly selected keys.\n'
+  fi
+fi
+
 printf '\nDownloading backups...\n'
 SCP_ARGS=(-P "$SSH_PORT")
 if [[ -n "$SSH_KEY" ]]; then
@@ -329,6 +358,23 @@ if [[ -n "$SSH_KEY" ]]; then
 fi
 
 if [[ "$EXECUTE" -eq 1 ]]; then
+  if [[ "$SYNC_CONFIG" -eq 1 ]]; then
+    # Create securely before scp so secrets never land in a world-readable file.
+    LOCAL_CONFIG="$(mktemp "$LOCAL_BACKUP_DIR/.site-config-download.XXXXXX")"
+    trap 'rm -f -- "${LOCAL_CONFIG:-}"' EXIT
+    scp "${SCP_ARGS[@]}" "$REMOTE_USER@$REMOTE_HOST:$LATEST_CONFIG" "$LOCAL_CONFIG"
+    chmod 600 "$LOCAL_CONFIG"
+    CONFIG_ARGS=(--remote "$LOCAL_CONFIG" --local "$LOCAL_SITE_DIR/site_config.json")
+    for key in "${CONFIG_KEYS[@]}"; do
+      CONFIG_ARGS+=(--key "$key")
+    done
+    python3 "$SCRIPT_DIR/sync_site_config.py" validate "${CONFIG_ARGS[@]}"
+    CONFIG_DEST="$LOCAL_BACKUP_DIR/$(basename "$LATEST_CONFIG")"
+    mv -f -- "$LOCAL_CONFIG" "$CONFIG_DEST"
+    LOCAL_CONFIG="$CONFIG_DEST"
+    trap - EXIT
+    CONFIG_ARGS[1]="$LOCAL_CONFIG"
+  fi
   scp "${SCP_ARGS[@]}" "$REMOTE_USER@$REMOTE_HOST:$LATEST_DB" "$LOCAL_BACKUP_DIR/"
 
   if [[ -n "${LATEST_PUBLIC:-}" ]]; then
@@ -350,7 +396,7 @@ LOCAL_PUBLIC=""
 LOCAL_PRIVATE=""
 
 if [[ "$EXECUTE" -eq 1 ]]; then
-  LOCAL_DB="$(ls -t "$LOCAL_BACKUP_DIR"/*database.sql.gz 2>/dev/null | head -1)" || fail "No local DB backup found in $LOCAL_BACKUP_DIR"
+  LOCAL_DB="$LOCAL_BACKUP_DIR/$(basename "$LATEST_DB")"
   LOCAL_PUBLIC="$(find "$LOCAL_BACKUP_DIR" -maxdepth 1 -name '*-files.tar' ! -name '*private-files*' -print 2>/dev/null | xargs -r ls -t 2>/dev/null | head -1)" || true
   LOCAL_PRIVATE="$(find "$LOCAL_BACKUP_DIR" -maxdepth 1 -name '*-private-files.tar' -print 2>/dev/null | xargs -r ls -t 2>/dev/null | head -1)" || true
 fi
@@ -364,8 +410,20 @@ if [[ ! -d "$LOCAL_SITE_DIR" ]]; then
   local_exec "Creating local site: $LOCAL_SITE" "cd $(quote "$LOCAL_BENCH_PATH") && bench new-site $(quote "$LOCAL_SITE") --admin-password $(quote "$ADMIN_PASSWORD") $DATABASE_ADMIN_FLAGS"
 fi
 
+if [[ "$SYNC_CONFIG" -eq 1 ]]; then
+  if [[ "$EXECUTE" -eq 1 ]]; then
+    python3 "$SCRIPT_DIR/sync_site_config.py" backup "${CONFIG_ARGS[@]}"
+  else
+    printf '[dry-run] Would back up local site_config.json before database restore and merge selected keys afterward.\n'
+  fi
+fi
+
 if [[ "$EXECUTE" -eq 1 && -n "${LOCAL_DB:-}" ]]; then
   local_exec "Restoring database to $LOCAL_SITE" "cd $(quote "$LOCAL_BENCH_PATH") && bench --site $(quote "$LOCAL_SITE") restore $(quote "$LOCAL_DB") $DATABASE_ADMIN_FLAGS"
+fi
+
+if [[ "$SYNC_CONFIG" -eq 1 && "$EXECUTE" -eq 1 ]]; then
+  python3 "$SCRIPT_DIR/sync_site_config.py" apply "${CONFIG_ARGS[@]}"
 fi
 
 local_exec "Cleaning old files directories" "

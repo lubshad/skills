@@ -34,6 +34,36 @@ Key defaults: `--remote-user frappe`, `--remote-bench /home/frappe/frappe-bench`
 
 Flags: `--skip-files`, `--skip-backup`, `--ssh-port`, `--remote-user`, `--remote-bench`, `--admin-password`, `--mariadb-root-username`, `--mariadb-root-password`.
 
+### Site Configuration Sync
+
+The reusable script syncs `encryption_key` by default using the configuration backup
+with the exact same prefix as the selected database backup. It requires `python3`
+and uses `.agents/scripts/sync_site_config.py` for validation and merging.
+
+- `--config-key KEY` opts an additional application setting into the merge; repeat for multiple keys.
+- `--skip-config` explicitly preserves local configuration and cannot be combined with `--config-key`.
+- Local database settings, Redis/socket endpoints, hostname, developer mode, and scheduler controls are protected, even when absent locally. The helper owns the protected-key list.
+- Unselected settings remain local; `common_site_config.json` is not synced.
+- Missing matching configuration, invalid JSON, missing selected keys, or an invalid encryption key abort before restore.
+- Downloaded configuration is private (`0600`). A timestamped `site_config.pre-sync-*.json` backup is kept beside the local configuration before database restore; these recovery copies are not pruned automatically.
+- The merge is atomic and happens after database restore, before migration. Output lists key names, never configuration values.
+- `--skip-backup` still requires configuration paired with the selected database backup; dry-run performs no remote reads or writes.
+
+Example with an application-specific setting:
+
+```bash
+.agents/scripts/sync_server_data.sh --execute \
+  --remote-site example.com --local-site example.localhost \
+  --config-key custom_application_setting
+```
+
+Verify configuration behavior without contacting a server:
+
+```bash
+bash -n .agents/scripts/sync_server_data.sh
+PYTHONDONTWRITEBYTECODE=1 python3 .agents/scripts/test_sync_site_config.py
+```
+
 **Note:** `scp` uses `-P` (uppercase) for port, unlike `ssh` which uses `-p`. The script handles this.
 
 ## Per-Site Scripts (Legacy)
