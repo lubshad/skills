@@ -40,3 +40,14 @@ lib/
 
 ### Deep Linking
 - Keep route names URL-friendly (`/player-detail`, `/match-history`) to support future deep linking.
+- When opening a named route directly on Flutter web, account for earlier routes (such as `/` or splash) that may remain mounted underneath it.
+
+### Route Lifecycle And Auth Redirects
+- Before navigating from a BLoC listener, timer, or delayed callback, check that the owning route is still mounted and current (for example, `mounted && ModalRoute.of(context)?.isCurrent == true`). An offstage splash or login route must not redirect over the active page.
+- Scope startup-session navigation to the startup check. Do not treat a later login, signup, or OTP error as a reason for the splash route to navigate again.
+- Consume pending navigation results once so a later timer or state change cannot repeat the same redirect. Keep form state intact when a recoverable request fails.
+
+## Verification
+
+- Open an auth route directly by URL, trigger a failed login or OTP request, and confirm the current route and entered values remain intact.
+- Confirm the splash route still navigates after the startup session check, and an expired authenticated session still returns to login.

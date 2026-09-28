@@ -14,6 +14,36 @@ For backend work, any external API call or long-running function must not block 
 | Masar Admin | `flutter_apps/masar_admin/` | Flutter, BLoC, desktop-first, web/Chrome deployment |
 | Backend | `apps/masar/` + other Frappe apps | Python, Frappe framework |
 
+## COREAXIS LMS
+
+COREAXIS LMS consists of a shared Frappe backend and Flutter administrator and student applications. This project mapping is tenant-neutral; production connections and deployment details belong in tenant-specific documentation.
+
+### Components and Local Connections
+
+| Component | Location | Required local URL |
+|-----------|----------|--------------------|
+| Backend / Frappe Desk | `apps/lms_custom/` | `http://lms.localhost:8000` |
+| Admin frontend | `flutter_apps/frappe_lms_admin/` | `http://lmsadmin.localhost:8083` |
+| Student frontend | `flutter_apps/frappe_lms_student/` | `http://lmsstudent.localhost:8084` |
+
+These addresses define the required local setup; they do not imply that the site or services are already configured or running.
+
+- The local Frappe site name is `lms.localhost`. Both frontends use `http://lms.localhost:8000` as their API base URL.
+- Reserve port `8083` for the admin frontend and `8084` for the student frontend. Use the listed URLs for local runs, manual testing, and browser automation; do not silently fall back to another port.
+- Run the admin Flutter web app with `--web-hostname lmsadmin.localhost --web-port 8083` and the student app with `--web-hostname lmsstudent.localhost --web-port 8084`.
+- All three hostnames must resolve to the local development machine.
+- Frappe CORS must allow `http://lmsadmin.localhost:8083` and `http://lmsstudent.localhost:8084`. If cookie authentication or realtime is used, configure those connections for the separate frontend origins as well.
+- The separate frontend hostnames are an explicit COREAXIS LMS exception to the same-hostname convention in `project-connections.md`. This local connection table takes precedence for these two frontends.
+
+### API Configuration References
+
+| Component | Configuration file |
+|-----------|--------------------|
+| Admin frontend | `flutter_apps/frappe_lms_admin/lib/core/config/app_config.dart` |
+| Student frontend | `flutter_apps/frappe_lms_student/lib/core/config/app_config.dart` |
+
+Both Flutter applications support an `API_BASE_URL` override. Read backend URLs from application configuration and use the local backend URL above for this setup.
+
 ## Reading Order
 
 1. Identify the platform and product surface: admin, public, auth, listing, form, mobile, tablet, desktop, or backend.

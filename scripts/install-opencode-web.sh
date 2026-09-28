@@ -68,7 +68,7 @@ unset username_b64 password_b64
 cat >"$tmp_dir/opencode-web.service" <<'UNIT'
 [Unit]
 Description=OpenCode web interface
-Documentation=https://opencode.ai/docs/web/
+Documentation=https://opencode.ai/v2/docs/cli/
 Wants=network-online.target
 After=network-online.target
 
@@ -79,7 +79,7 @@ Group=lubshad
 WorkingDirectory=/home/lubshad
 Environment=HOME=/home/lubshad
 EnvironmentFile=/etc/opencode-web.env
-ExecStart=/bin/bash -c 'export OPENCODE_SERVER_USERNAME="$$(printf "%%s" "$$OPENCODE_SERVER_USERNAME_B64" | base64 -d)"; export OPENCODE_SERVER_PASSWORD="$$(printf "%%s" "$$OPENCODE_SERVER_PASSWORD_B64" | base64 -d)"; unset OPENCODE_SERVER_USERNAME_B64 OPENCODE_SERVER_PASSWORD_B64; exec /home/lubshad/.opencode/bin/opencode web --hostname 127.0.0.1 --port 4096 --cors https://opencode.coreaxissolutions.in'
+ExecStart=/bin/bash -c 'export OPENCODE_SERVER_USERNAME="$$(printf "%%s" "$$OPENCODE_SERVER_USERNAME_B64" | base64 -d)"; export OPENCODE_SERVER_PASSWORD="$$(printf "%%s" "$$OPENCODE_SERVER_PASSWORD_B64" | base64 -d)"; unset OPENCODE_SERVER_USERNAME_B64 OPENCODE_SERVER_PASSWORD_B64; exec /home/lubshad/.opencode/bin/opencode serve --hostname 127.0.0.1 --port 4096 --cors https://opencode.coreaxissolutions.in'
 Restart=on-failure
 RestartSec=5s
 TimeoutStopSec=30s
@@ -117,7 +117,7 @@ sudo systemctl is-active --quiet opencode-web.service
 sudo systemctl is-enabled --quiet cloudflared.service
 sudo systemctl is-active --quiet cloudflared.service
 
-http_status="$(curl --silent --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:${OPENCODE_PORT}/")"
+http_status="$(curl --silent --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:${OPENCODE_PORT}/api/info")"
 if [[ "$http_status" != "401" ]]; then
   printf 'Expected an authenticated response (401) from OpenCode, received HTTP %s.\n' "$http_status" >&2
   exit 1

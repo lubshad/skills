@@ -30,6 +30,7 @@ Reference map for all apps, sites, and their connections in this bench.
 |-----------------|--------------------|-------------------|
 | Masar web | `http://masar.localhost:3000` | `./run_masar_next.sh` |
 | Sync Dating concept 1 | `http://sync-dating.localhost:3001` | Run `npm run dev` in `next_apps/sync_dating/concept-1/` |
+| Sync Dating admin | `http://sync-dating.localhost:3006` | Run `npm run dev` in `next_apps/sync-dating/admin/` |
 | Sync Dating concept 2 | `http://sync-dating.localhost:3002` | Reserved; use this URL when the concept is added |
 | Sync Dating concept 3 | `http://sync-dating.localhost:3003` | Reserved; use this URL when the concept is added |
 | Usafe Safety admin | `http://usafe-safety.localhost:3004` | Run `npm run dev` in `react_apps/UsafeSafety/` |
@@ -148,6 +149,7 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 
 - Run each Next.js development server with hostname `sync-dating.localhost`, not `localhost` or `127.0.0.1`, so future Frappe CORS, session cookies, and Socket.IO share the site hostname.
 - Reserve ports `3001`, `3002`, and `3003` for Sync concepts 1, 2, and 3 respectively.
+- Reserve port `3006` for the separate Sync Dating admin UI.
 
 ## Zeronic Project
 

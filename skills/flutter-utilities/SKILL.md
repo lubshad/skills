@@ -15,9 +15,13 @@ Follow these utility rules strictly when working on Flutter code.
 ## Run Scripts
 
 - When creating or editing a run script for a Flutter web app, always pass an explicit `--web-port` to `flutter run`; never rely on Flutter's random/default web port.
+- For server-only Flutter web launchers, default to `-d web-server` so the launcher owns only the development server and prints a stable URL for the user to open. Do not launch or manage Chrome unless browser startup is an explicit requirement.
+- Apply browser-specific arguments such as `--web-browser-flag` only when the selected device is Chrome; never pass them to `web-server` or mobile devices.
 - For Flutter mobile apps, run scripts should parse and support a `-d` or `--device` argument to specify the target device, and pass through any remaining extra arguments directly to `flutter run`.
 - When adding watch mode around `flutter run`, preserve interactive terminal input so Flutter CLI commands such as `r` for hot reload and `R` for hot restart still work. If `flutter run` must be backgrounded for a watcher, attach stdin from `/dev/tty` when available instead of leaving it detached.
 - Use a stable default port per app and allow overriding it with a script argument such as `--port PORT` when practical.
+- Re-running a local launcher must stop and replace that app's existing Flutter process, including its web server. Track the process with a project-scoped PID file, validate its live command and canonical working directory before signaling it, stop it gracefully with a bounded timeout, and use `exec` for the replacement `flutter run` process.
+- A listening port alone does not prove process ownership. Only stop a port owner after validating that it is the selected app's Flutter process; leave unrelated services running and fail with a clear PID and port message.
 - For Flutter web apps that call a local Frappe backend, pass an explicit `--web-hostname` matching the Frappe site host (for example `masar.localhost`) so Frappe Socket.IO origin checks pass.
 - For `flutter_apps/masar_admin/`, use `masar.localhost:8001` by default through `run_masar_admin.sh` or `flutter_apps/masar_admin/run.sh`; the backend remains `http://masar.localhost:8000` and Socket.IO remains on the bench `socketio_port`.
 - For Masar Admin realtime, prefer Frappe token auth over browser `sid` auth: keep Dio `withCredentials: false`, send normal API calls with `Authorization: token <api_key>:<api_secret>`, and connect Socket.IO with the same token in `extraHeaders`.
@@ -61,3 +65,11 @@ Follow these utility rules strictly when working on Flutter code.
 | HTML display | `flutter_widget_from_html_core` |
 | Rich text editor | `flutter_inappwebview` |
 | Environment variables | `flutter_dotenv` or `.env` loader |
+
+## Verification
+
+- Run the declared shell's syntax check for every changed launcher.
+- Start the launcher twice and verify the second invocation gracefully replaces the first app process and web server.
+- Verify `web-server` launches receive no Chrome-only flags and print the expected hostname and port.
+- Verify device, port, environment, and extra arguments reach `flutter run` unchanged.
+- Verify an unrelated process on the selected port is reported but not stopped.
