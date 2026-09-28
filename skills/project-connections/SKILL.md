@@ -140,6 +140,7 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 | Component | Location | Role |
 |-----------|----------|------|
 | Backend | `apps/sync_dating/` | Frappe app for Sync Dating customizations and APIs |
+| Mobile app | `flutter_apps/syncapp/` | Blank Android/iOS Flutter app (`com.sync.syncapp`); backend not connected yet |
 | Web frontend | `next_apps/sync_dating/` | Next.js web application |
 | Frappe site | `sites/sync-dating.localhost` | Local Sync Dating target site |
 | API base URL (dev) | `http://sync-dating.localhost:8000` | Local Frappe API host |
