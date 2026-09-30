@@ -20,7 +20,9 @@ Use this skill for every self-hosted Pipecat deployment. New production bots run
 - Keep `.env`, `.venv`, `pyproject.toml`, and `uv.lock` server-managed unless a release explicitly changes dependencies.
 - Routine releases sync only `server/bot.py` to the remote runtime directory as `bot.py`.
 - Deploy from a dedicated `production` branch and retain `workflow_dispatch` for retries.
-- Copy `../github-actions-deployment/reference/pipecat-goproduction` to the repository root as `goproduction` to back up and promote production.
+- `./deploy` currently promotes to `production` by default and backs it up to `production-backup`; current reference scripts support only that release target.
+- Planned interface: `./deploy --internaltest` will promote to `internaltest` after backing up that branch's previous ref to `internaltest-backup`. The flag is not currently implemented; add support only when requested, with a matching workflow and target-specific safety guards, while retaining the default production behavior.
+- Copy `../github-actions-deployment/reference/pipecat-deploy` to the repository root as `deploy` to back up and promote production.
 - Never commit runtime provider keys or place the production `.env` in GitHub Actions.
 
 The single-file release contract is intentional. If `bot.py` starts importing new local modules or requires dependency changes, expand the deployment contract explicitly before release rather than silently copying an incomplete source tree.
@@ -57,7 +59,7 @@ WantedBy=multi-user.target
 
 ### GitHub Actions Deployment
 
-Start from `../github-actions-deployment/reference/pipecat-systemd-production.yml` and `../github-actions-deployment/reference/pipecat-goproduction`.
+Start from `../github-actions-deployment/reference/pipecat-systemd-production.yml` and `../github-actions-deployment/reference/pipecat-deploy`.
 
 The workflow must validate syntax and required secrets, install a step-scoped SSH key, and check the remote directory, `bot.py`, and `.env` before mutation. Upload to a temporary remote filename, retain `bot.py.previous`, atomically replace the file, then use `systemctl --no-block restart`.
 
@@ -138,13 +140,13 @@ Do not use `journalctl -f` or `docker compose logs -f` in Actions.
 
 ## Release Flow
 
-Initialize `production` and `production-backup` from the intended baseline. Normal systemd releases run `./goproduction` from a clean development or release branch. The production push is the only deployment trigger.
+Initialize `production` and `production-backup` from the intended baseline. Normal systemd releases run `./deploy` from a clean development or release branch. The production push is the only deployment trigger.
 
 Systemd restart interrupts active voice sessions. Schedule releases appropriately; this model is not zero-downtime.
 
 ## Verification
 
-- Run `bash -n goproduction` and test its dirty, detached, `production`, and `production-backup` refusal paths.
+- Run `bash -n deploy` and test its dirty, detached, `production`, and `production-backup` refusal paths.
 - Parse workflow YAML and syntax-check every multiline Bash block.
 - Confirm SSH, rsync, and curl operations are bounded.
 - Confirm private keys are step-scoped and removed with `if: always()`.

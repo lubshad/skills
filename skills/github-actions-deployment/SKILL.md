@@ -22,6 +22,9 @@ Use this skill when creating or updating GitHub Actions workflows that build, re
 
 ## Workflow Pattern
 
+- `./deploy` defaults to promoting the source branch to `production`; current reference scripts use `production` as their only release target.
+- Planned target-selection interface: `./deploy` uses `production` with `production-backup`; `./deploy --internaltest` will use `internaltest` with `internaltest-backup`. The backup must contain the selected target's previous ref, never another target's ref.
+- The `--internaltest` flag is a future contract, not supported by current reference scripts. Implement it only when requested, with a matching workflow trigger and target-specific safety guards; preserve the default production behavior.
 - Prefer `on.push.branches` for deployment branches and add `workflow_dispatch` for manual retries
 - Use `paths` filters only when the release contract intentionally skips deployment for unrelated production-branch changes
 - Use `concurrency` for production deploys to prevent overlapping releases
@@ -66,8 +69,8 @@ Use this pattern for long-running application services such as standalone Next.j
 ## Pipecat Systemd Deployments
 
 - Read `pipecat-self-hosting.md` alongside this skill.
-- Start from `reference/pipecat-systemd-production.yml` and copy `reference/pipecat-goproduction` to the repository root as `goproduction`. Rename generic `PIPECAT_*` secrets and variables only when an app prefix improves clarity.
-- Deploy from `production`, keep `workflow_dispatch`, and use the root `goproduction` helper for normal promotion.
+- Start from `reference/pipecat-systemd-production.yml` and copy `reference/pipecat-deploy` to the repository root as `deploy`. Rename generic `PIPECAT_*` secrets and variables only when an app prefix improves clarity.
+- Deploy from `production`, keep `workflow_dispatch`, and use the root `deploy` helper for normal promotion.
 - Keep `.env`, dependencies, and the virtual environment server-managed; routine releases sync only `server/bot.py` to the configured runtime directory.
 - Upload to a temporary filename, preserve `bot.py.previous`, and atomically replace the runtime file before restart.
 - Use `systemctl --no-block restart`; never let an SSH session wait indefinitely for systemd shutdown or startup.
@@ -93,11 +96,11 @@ It supports optional `PIPECAT_SSH_PORT`, defaulting to `22`.
 
 - Read `frappe-deployment.md` alongside this skill for Frappe-specific install, migration, build, and restart behavior.
 - Start from `reference/frappe-production.yml` and rename its generic `FRAPPE_*` secrets and variables only when an app-specific prefix improves repository clarity.
-- Add `goproduction` from `reference/frappe-goproduction` in the Frappe app repository root whenever adding a production workflow.
+- Add `deploy` from `reference/frappe-deploy` in the Frappe app repository root whenever adding a production workflow.
 - Deploy only from a dedicated `production` branch and keep `workflow_dispatch` for guarded retries of the same workflow.
 - Initialize remote `production` and `production-backup` branches from the intended baseline before normal promotion begins.
-- Use `goproduction` as the normal release entry point: it backs up the current remote production ref, then promotes the current clean branch with `--force-with-lease`.
-- Keep deployment operations out of `goproduction`; the production push must be the only action that triggers source sync, migration, restart, and health verification.
+- Use `deploy` as the normal release entry point: it backs up the current remote production ref, then promotes the current clean branch with `--force-with-lease`.
+- Keep deployment operations out of `deploy`; the production push must be the only action that triggers source sync, migration, restart, and health verification.
 - Do not create new Frappe `sync.sh` scripts or document manual rsync as the standard deployment path.
 - Sync the checked-out app source into `<bench-dir>/apps/<app-name>`; Frappe editable installs intentionally deploy source rather than a standalone build artifact.
 - Exclude repository metadata, workflow files, virtual environments, caches, and local credential files from rsync.
@@ -150,7 +153,7 @@ It supports optional `FLUTTER_WEB_SSH_PORT`, `FLUTTER_WEB_REMOTE_PATH`, and
 ## MasarNext Defaults
 
 - Deployment branch: `production`
-- Promotion helper: `next_apps/masarnext/goproduction`
+- Promotion helper: `next_apps/masarnext/deploy`
 - Workflow location: `next_apps/masarnext/.github/workflows/`
 - Host: `masardevelopment.conceptiqs.com`
 - Remote dir: `/var/www/masarnext`
@@ -169,12 +172,12 @@ It supports optional `FLUTTER_WEB_SSH_PORT`, `FLUTTER_WEB_REMOTE_PATH`, and
 
 - Confirm the workflow is inside the actual deployable Git repository.
 - Parse or lint the workflow YAML when tooling is available.
-- Run `bash -n goproduction` and verify it refuses dirty worktrees, detached HEAD, `production`, and `production-backup`.
+- Run `bash -n deploy` and verify it refuses dirty worktrees, detached HEAD, `production`, and `production-backup`.
 - Verify every referenced secret and variable is documented.
 - Verify the declared package-manager version matches the CI setup and that its clean install command succeeds locally.
 - For Frappe workflows, confirm private keys are step-scoped and local credential files are excluded from source sync.
 - Run the same production build command locally when build flags, entrypoints,
   generated assets, or compile-time definitions change.
 - Do not push the deployment branch as routine verification.
-- Confirm Frappe deployment documentation points to `goproduction` and GitHub Actions rather than a local sync wrapper.
+- Confirm Frappe deployment documentation points to `deploy` and GitHub Actions rather than a local sync wrapper.
 - For Pipecat systemd workflows, confirm restart is non-blocking, every network operation is bounded, failure logs are finite, rollback is present, and local plus public health checks pass.

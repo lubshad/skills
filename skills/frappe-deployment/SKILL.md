@@ -1,16 +1,16 @@
 ---
 name: frappe-deployment
-description: Use when creating, changing, or explaining GitHub Actions production deployment for Frappe apps, including goproduction branch promotion and the remote Bench lifecycle.
+description: Use when creating, changing, or explaining GitHub Actions production deployment for Frappe apps, including deploy branch promotion and the remote Bench lifecycle.
 ---
 
 # Frappe Deployment
 
-Use this skill for the Frappe-specific lifecycle inside GitHub Actions production deployments and for the `goproduction` branch-promotion flow that triggers them.
+Use this skill for the Frappe-specific lifecycle inside GitHub Actions production deployments and for the `deploy` branch-promotion flow that triggers them.
 
 ## When To Apply
 
 - Creating or updating a GitHub Actions workflow that deploys a Frappe app
-- Creating or updating a Frappe app's `goproduction` helper
+- Creating or updating a Frappe app's `deploy` helper
 - Migrating an existing manual Frappe deployment to GitHub Actions
 - Explaining a Frappe production deployment or legacy sync script
 - Adjusting remote host, site, SSH key, app path, or migrate/restart flow
@@ -18,7 +18,9 @@ Use this skill for the Frappe-specific lifecycle inside GitHub Actions productio
 ## Required Deployment Artifacts
 
 - Keep `.github/workflows/deploy-production.yml` in the Frappe app's actual Git repository.
-- Keep `goproduction` in that repository root and make it executable.
+- Keep `deploy` in that repository root and make it executable.
+- `./deploy` currently promotes to `production` by default and backs it up to `production-backup`; the reference helper supports only that target.
+- Planned interface: `./deploy --internaltest` will promote to `internaltest` after backing up that branch's previous ref to `internaltest-backup`. The flag is not currently implemented; add support only when requested, with a matching workflow and target-specific safety guards, while retaining the default production behavior.
 - Use a dedicated remote `production` branch as the deployment trigger.
 - Maintain a remote `production-backup` branch containing the production ref that existed before the latest promotion.
 - Initialize both remote branches from the intended baseline before the first normal promotion.
@@ -38,7 +40,7 @@ Use this skill for the Frappe-specific lifecycle inside GitHub Actions productio
 
 ## Production Promotion
 
-- Start from `.agents/skills/github-actions-deployment/reference/frappe-goproduction`.
+- Start from `.agents/skills/github-actions-deployment/reference/frappe-deploy`.
 - Require a clean worktree and a named source branch.
 - Refuse promotion from `production` or `production-backup`.
 - Fetch and prune `origin` before comparing or updating refs.
@@ -74,14 +76,14 @@ Use this skill for the Frappe-specific lifecycle inside GitHub Actions productio
 - Preserve the standard remote lifecycle: editable package install, safe `sites/apps.txt` registration, conditional first-time app installation, migration, optional build, restart, then an HTTPS health check.
 - Use `concurrency` with cancellation disabled so production migrations cannot overlap.
 - Use a finite timeout and least-privilege `contents: read` permissions.
-- Add the standard `goproduction` helper with every new Frappe production workflow.
+- Add the standard `deploy` helper with every new Frappe production workflow.
 
 ## Legacy Manual Sync
 
 - Existing app-level `sync.sh` wrappers and `.agents/scripts/sync_frappe_app.sh` are retained only for legacy maintenance.
 - Do not create new wrappers, advertise them as the normal production path, or use them when setting up a new Frappe deployment.
 - Do not delete or rewrite an existing legacy sync script unless the user explicitly requests that app's migration or cleanup.
-- When asked to explain an existing wrapper, state that GitHub Actions plus `goproduction` is the current production standard.
+- When asked to explain an existing wrapper, state that GitHub Actions plus `deploy` is the current production standard.
 
 ## Dependency Source Of Truth
 
@@ -103,6 +105,14 @@ Use this skill for the Frappe-specific lifecycle inside GitHub Actions productio
 
 - `apps/masar/sync.sh` is a legacy backend-only deployment path; do not extend it or include `masarnext` in it.
 
+## Sync Dating-Specific Notes
+
+- App repository: `apps/sync_dating/`, GitHub repository: `lubshad/sync-dating`; its promotion helper uses the existing `upstream` remote rather than adding or renaming `origin`.
+- Production host/site: `sync-backend.coreaxissolutions.in`; Bench: `/home/frappe/frappe-bench`; SSH user: `frappe`.
+- The user has explicitly enabled asset builds: set the repository variable `FRAPPE_RUN_BUILD` to `true` and keep this app's workflow fallback at `true`. Run `bench build --app sync_dating` after migration and before restart, loading NVM when present. An explicit `false` variable may disable the build; do not silently revert the default to `false`.
+- Keep this build default specific to Sync Dating; other apps retain their configured build policy.
+- Verify public HTTPS using `/api/method/frappe.ping` and require `message=pong`, not a successful homepage response.
+
 ## Xealth-Specific Notes
 
 - `apps/xealth/setup_server.sh` is a local server-provisioning wrapper, not just an app deploy script.
@@ -117,7 +127,7 @@ Use this skill for the Frappe-specific lifecycle inside GitHub Actions productio
 ## Verification
 
 - Validate workflow and promotion scripts without pushing `production` or contacting the production host as routine verification.
-- Run `bash -n goproduction` and verify its clean-worktree and branch guards.
+- Run `bash -n deploy` and verify its clean-worktree and branch guards.
 - Verify application package state, site installation, migrations, worker services, and nginx status.
 - Verify the target site responds through its intended host and HTTPS configuration.
 - Parse or lint GitHub workflow YAML and verify every secret and variable is documented.

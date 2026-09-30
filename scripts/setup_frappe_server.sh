@@ -331,7 +331,14 @@ systemctl is-active --quiet nginx;
 supervisorctl status | awk '/node-socketio/ && \$2 == "RUNNING" {found=1} END {exit found ? 0 : 1}';
 if command -v ss >/dev/null 2>&1; then ss -lnt | awk '\$4 ~ /:9000\$/ {found=1} END {exit found ? 0 : 1}'; fi;
 if command -v curl >/dev/null 2>&1; then
-  curl -fsS -H $(quote "Host: $SITE_NAME") http://127.0.0.1/ >/dev/null;
+  ping_response="\$(curl -fsS --connect-timeout 10 --max-time 30 -H $(quote "Host: $SITE_NAME") http://127.0.0.1/api/method/frappe.ping)" || {
+    printf 'Frappe ping failed through nginx over HTTP.\n' >&2;
+    exit 1;
+  };
+  printf '%s' "\$ping_response" | $(quote "$BENCH_DIR/env/bin/python") -c 'import json, sys; sys.exit(0 if json.load(sys.stdin).get("message") == "pong" else 1)' || {
+    printf 'Frappe ping returned an unexpected response; expected message=pong.\n' >&2;
+    exit 1;
+  };
   curl -fsS -H $(quote "Host: $SITE_NAME") 'http://127.0.0.1/socket.io/?EIO=4&transport=polling' >/dev/null;
 fi;
 printf 'Production services, Socket.IO, and %s are healthy through nginx.\n' $(quote "$SITE_NAME")

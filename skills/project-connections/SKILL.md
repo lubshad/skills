@@ -29,10 +29,8 @@ Reference map for all apps, sites, and their connections in this bench.
 | Project surface | Required local URL | Local run command |
 |-----------------|--------------------|-------------------|
 | Masar web | `http://masar.localhost:3000` | `./run_masar_next.sh` |
-| Sync Dating concept 1 | `http://sync-dating.localhost:3001` | Run `npm run dev` in `next_apps/sync_dating/concept-1/` |
+| Sync Dating concept 1 | `http://sync-dating.localhost:3001` | Run `npm run dev` in `next_apps/sync-dating/concept-1/` |
 | Sync Dating admin | `http://sync-dating.localhost:3006` | Run `npm run dev` in `next_apps/sync-dating/admin/` |
-| Sync Dating concept 2 | `http://sync-dating.localhost:3002` | Reserved; use this URL when the concept is added |
-| Sync Dating concept 3 | `http://sync-dating.localhost:3003` | Reserved; use this URL when the concept is added |
 | Usafe Safety admin | `http://usafe-safety.localhost:3004` | Run `npm run dev` in `react_apps/UsafeSafety/` |
 | Omor admin | `http://omor.localhost:3005` | Run Flutter web with `--web-hostname omor.localhost --web-port 3005` |
 | Masar admin | `http://masar.localhost:8001` | `./run_masar_admin.sh` |
@@ -70,7 +68,7 @@ Native mobile applications do not have a browser URL. Run them on their assigned
 
 ### Masar Deployment Files
 
-- Legacy backend deploy: `apps/masar/sync.sh`; new Frappe production deployments use GitHub Actions plus `goproduction`
+- Legacy backend deploy: `apps/masar/sync.sh`; new Frappe production deployments use GitHub Actions plus `deploy`
 - Backend SSH helper: `apps/masar/sshmain.sh`
 - Admin local run: `run_masar_admin.sh` or `flutter_apps/masar_admin/run.sh`
 - Web deploy: `next_apps/masarnext/deploy.sh`
@@ -131,6 +129,7 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 |-----------|----------|------|
 | Backend | `apps/xealth/` | Frappe app |
 | Admin frontend | `flutter_apps/xealth_admin/` | Flutter shift management admin panel |
+| Voice assistant | `pipecat_bots/xealth-voice-assistant/` | Pipecat realtime voice bot (web and Twilio telephony); GitHub: `pentaverse-sa/xealth-voice-assistant` |
 | Frappe site | `sites/xealth.localhost` | Local Xealth target site |
 | API base URL (dev) | `http://xealth.localhost:8000` | Local Frappe API host |
 | Admin local URL | `http://xealth.localhost:8085` | Required URL for local runs, tests, and Playwright |
@@ -141,15 +140,16 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 |-----------|----------|------|
 | Backend | `apps/sync_dating/` | Frappe app for Sync Dating customizations and APIs |
 | Mobile app | `flutter_apps/syncapp/` | Blank Android/iOS Flutter app (`com.sync.syncapp`); backend not connected yet |
-| Web frontend | `next_apps/sync_dating/` | Next.js web application |
+| Web frontend | `next_apps/sync-dating/` | Next.js frontend directory containing Concept 1 and admin |
+| Admin frontend | `next_apps/sync-dating/admin/` | Separate admin UI at `http://sync-dating.localhost:3006` |
 | Frappe site | `sites/sync-dating.localhost` | Local Sync Dating target site |
 | API base URL (dev) | `http://sync-dating.localhost:8000` | Local Frappe API host |
-| Concept 1 PWA | `next_apps/sync_dating/concept-1/` | Static installable prototype at `http://sync-dating.localhost:3001`; required URL for local runs, tests, and Playwright |
+| Concept 1 PWA | `next_apps/sync-dating/concept-1/` | Static installable prototype at `http://sync-dating.localhost:3001`; required URL for local runs, tests, and Playwright |
 
 ### Sync Local Frontend
 
 - Run each Next.js development server with hostname `sync-dating.localhost`, not `localhost` or `127.0.0.1`, so future Frappe CORS, session cookies, and Socket.IO share the site hostname.
-- Reserve ports `3001`, `3002`, and `3003` for Sync concepts 1, 2, and 3 respectively.
+- Concept 1 is the only Sync concept in use; reserve port `3001` for it.
 - Reserve port `3006` for the separate Sync Dating admin UI.
 
 ## Zeronic Project
@@ -162,7 +162,7 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 | API base URL (dev) | `http://zeronic.localhost:8000` | Set via `VITE_API_BASE_URL` in the React app's `.env.development` |
 | Web frontend URL (dev) | `http://zeronic.localhost:8080` | Run with `npm run dev`; matches the Frappe hostname for CORS, session cookies, and Socket.IO |
 | Backend host (prod) | `zeronic.coreaxissolutions.in` | Production Frappe host and site |
-| Backend deploy | `apps/zeronic/.github/workflows/deploy-production.yml` | GitHub Actions deploys pushes promoted by `apps/zeronic/goproduction` to the `production` branch |
+| Backend deploy | `apps/zeronic/.github/workflows/deploy-production.yml` | GitHub Actions deploys pushes promoted by `apps/zeronic/deploy` to the `production` branch |
 
 ## Usafe Safety Project
 

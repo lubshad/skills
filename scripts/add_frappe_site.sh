@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_SSH_KEY="$SCRIPT_DIR/../../personal"
 
 EXECUTE=0
+FORCE=0
 SSH_HOST=""
 SSH_USER="frappe"
 SSH_PORT="22"
@@ -50,7 +51,8 @@ Credentials:
   securely when an interactive terminal is available.
 
  Options:
-   --execute                         Apply changes; otherwise print the plan
+    --execute                         Apply changes; otherwise print the plan
+   --force                           Recreate an existing site even if backup fails
    --get-app REPOSITORY              Fetch an app into the existing bench; repeatable
    --app-branch BRANCH               Branch for the immediately preceding --get-app
    --install-app APP                 Install an app on the new site; repeatable
@@ -86,6 +88,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --execute)
       EXECUTE=1
+      shift
+      ;;
+    --force)
+      FORCE=1
       shift
       ;;
     --host)
@@ -210,6 +216,11 @@ printf 'Add-site plan:\n'
 printf '  Server: %s@%s:%s\n' "$SSH_USER" "$SSH_HOST" "$SSH_PORT"
 printf '  Bench: %s (owner: %s)\n' "$BENCH_DIR" "$BENCH_USER"
 printf '  Site: %s\n' "$SITE"
+if [[ "$FORCE" -eq 1 ]]; then
+  printf '  WARNING: If the site exists, back it up and replace it with a fresh site. Existing data is not restored.\n'
+  printf '  WARNING: Bench --force permits removal even if backup fails; old database data may be lost.\n'
+  printf '  The old site directory is retained in the Bench archive.\n'
+fi
 if [[ "${#INSTALL_APPS[@]}" -gt 0 ]]; then
   printf '  Apps:'
   printf ' %s' "${INSTALL_APPS[@]}"
@@ -257,6 +268,7 @@ printf 'Connecting to %s@%s and creating %s.\n' "$SSH_USER" "$SSH_HOST" "$SITE"
   printf 'BENCH_USER=%q\n' "$BENCH_USER"
   printf 'BENCH_DIR=%q\n' "$BENCH_DIR"
   printf 'SITE=%q\n' "$SITE"
+  printf 'FORCE=%q\n' "$FORCE"
   printf 'ADMIN_PASSWORD=%q\n' "$ADMIN_PASSWORD"
   printf 'MARIADB_ROOT_PASSWORD=%q\n' "$MARIADB_ROOT_PASSWORD"
   printf 'SSL_EMAIL=%q\n' "$SSL_EMAIL"
@@ -281,11 +293,14 @@ printf 'Connecting to %s@%s and creating %s.\n' "$SSH_USER" "$SSH_HOST" "$SITE"
 set -Eeuo pipefail
 
 SITE_CREATED=0
+SITE_REMOVED=0
 
 on_error() {
   local exit_code=$?
   if [[ "$SITE_CREATED" -eq 1 ]]; then
     printf 'Add-site failed after creating %s. The site was left in place for inspection; it was not dropped.\n' "$SITE" >&2
+  elif [[ "$SITE_REMOVED" -eq 1 ]]; then
+    printf 'Recreation failed after removing the old site %s. Recover from the backup in the Bench site archive; no automatic restore was attempted.\n' "$SITE" >&2
   fi
   exit "$exit_code"
 }
@@ -321,6 +336,22 @@ restore_nginx() {
   run_root systemctl reload nginx
 }
 
+verify_site_ping() {
+  local protocol="$1"
+  shift
+  local response
+  if ! response="$(curl -fsS --connect-timeout 10 --max-time 30 "$@")"; then
+    printf 'Frappe ping failed through nginx over %s for %s.\n' "$protocol" "$SITE" >&2
+    return 1
+  fi
+  if ! printf '%s' "$response" | run_as_bench "$BENCH_DIR/env/bin/python" -c \
+    'import json, sys; sys.exit(0 if json.load(sys.stdin).get("message") == "pong" else 1)'; then
+    printf 'Frappe ping returned an unexpected response over %s for %s; expected message=pong.\n' "$protocol" "$SITE" >&2
+    return 1
+  fi
+  printf 'Frappe ping verified over %s for %s.\n' "$protocol" "$SITE"
+}
+
 command -v sudo >/dev/null 2>&1 || [[ "$(id -u)" -eq 0 ]] || {
   printf 'sudo is required for nginx and SSL operations.\n' >&2
   exit 1
@@ -340,10 +371,10 @@ id "$BENCH_USER" >/dev/null 2>&1 || {
   printf 'Existing Frappe Bench not found at %s.\n' "$BENCH_DIR" >&2
   exit 1
 }
-[[ ! -e "$BENCH_DIR/sites/$SITE" ]] || {
-  printf 'Site already exists: %s\n' "$SITE" >&2
+if [[ -e "$BENCH_DIR/sites/$SITE" && "$FORCE" -ne 1 ]]; then
+  printf 'Site already exists: %s. Use --force to back up and recreate it.\n' "$SITE" >&2
   exit 1
-}
+fi
 command -v nginx >/dev/null 2>&1 || {
   printf 'nginx is not installed.\n' >&2
   exit 1
@@ -383,6 +414,14 @@ for app in "${INSTALL_APPS[@]+"${INSTALL_APPS[@]}"}"; do
   }
 done
 
+if [[ -e "$BENCH_DIR/sites/$SITE" ]]; then
+  printf 'Backing up, archiving, and removing existing site %s before recreation.\n' "$SITE"
+  run_as_bench bench drop-site "$SITE" \
+    --mariadb-root-password "$MARIADB_ROOT_PASSWORD" \
+    --force
+  SITE_REMOVED=1
+fi
+
 printf 'Creating site %s.\n' "$SITE"
 run_as_bench bench new-site "$SITE" \
   --admin-password "$ADMIN_PASSWORD" \
@@ -419,10 +458,8 @@ if ! run_root nginx -t; then
 fi
 run_root systemctl reload nginx
 
-curl -fsS -H "Host: $SITE" http://127.0.0.1/ >/dev/null || {
-  printf 'The new site did not respond through nginx over HTTP.\n' >&2
-  exit 1
-}
+verify_site_ping HTTP -H "Host: $SITE" \
+  http://127.0.0.1/api/method/frappe.ping
 
 if [[ "$SETUP_SSL" -eq 1 ]]; then
   ssl_nginx_backup="$BENCH_DIR/config/nginx.conf.pre-ssl.$timestamp.bak"
@@ -444,7 +481,8 @@ if [[ "$SETUP_SSL" -eq 1 ]]; then
     printf 'Certificate files were not created for %s.\n' "$SITE" >&2
     exit 1
   }
-  curl -fsS --resolve "$SITE:443:127.0.0.1" "https://$SITE/" >/dev/null
+  verify_site_ping HTTPS --resolve "$SITE:443:127.0.0.1" \
+    "https://$SITE/api/method/frappe.ping"
 fi
 
 run_as_bench bench --site "$SITE" list-apps

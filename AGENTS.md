@@ -115,7 +115,7 @@ For Pipecat self-hosting and production deployment, read `pipecat-self-hosting.m
 | `flutter-routing.md` | Navigation, route setup |
 | `flutter-android-release.md` | Flutter Android appbundle, Play Store, and Fastlane release scripts |
 | `flutter-ios-release.md` | Flutter iOS release, App Store, TestFlight, Xcode Organizer, Xcode Cloud ci_post_clone.sh, CocoaPods, and Swift Package Manager setup |
-| `flutter-goproduction.md` | Flutter production branch promotion, version incrementing, and release scripts |
+| `flutter-deploy.md` | Flutter production branch promotion, version incrementing, and release scripts |
 | `flutter-phone-auth.md` | Use when implementing or fixing mobile phone authentication, OTP login, or registration flows powered by flutter_utils |
 
 ### Next.js Implementation
@@ -158,7 +158,7 @@ For Pipecat self-hosting and production deployment, read `pipecat-self-hosting.m
 | `project-connections.md` | Project app mappings, site URLs, app paths, environment config |
 | `pipecat-self-hosting.md` | Pipecat self-hosting with default uv and systemd production deployment plus Docker Compose guidance for existing containerized bots |
 | `github-actions-deployment.md` | Any GitHub Actions workflow that builds, releases, or deploys code, including production-branch promotion helpers |
-| `frappe-deployment.md` | Frappe app production deployment through GitHub Actions, `goproduction`, and the remote Bench lifecycle |
+| `frappe-deployment.md` | Frappe app production deployment through GitHub Actions, `deploy`, and the remote Bench lifecycle |
 | `frappe-backup.md` | Frappe site backup/download/restore sync scripts and explaining or changing backup sync flow |
 | `event-based-refresh.md` | Cross-component refresh/invalidation after shared frontend context changes, such as default role/sport or active profile |
 | `project-scaffolding.md` | Creating or bootstrapping applications; creating/updating local run scripts and safe restart launchers |

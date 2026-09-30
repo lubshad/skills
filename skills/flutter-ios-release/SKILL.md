@@ -47,6 +47,8 @@ When running a manual/local build for App Store Connect:
 
 ## App Store Export Compliance
 
+App Store version validation is separate from export-compliance declarations: if App Store Connect reports ITMS-90186 (closed pre-release train) or ITMS-90062 (version not higher than the previously approved version), increment the Flutter `pubspec.yaml` marketing version (`x.y.z` in `version: x.y.z+n`) above the latest approved version and use a valid new build number. Increasing only `n` cannot reopen a closed or approved version. Confirm the archived app's resolved `CFBundleShortVersionString` and `CFBundleVersion` before upload, particularly when Xcode Cloud reports a build number different from `pubspec.yaml`.
+
 If the app does not use non-exempt encryption, ensure `ios/Runner/Info.plist` contains the following declaration to skip the export compliance warning during App Store Connect submission:
 
 ```xml
