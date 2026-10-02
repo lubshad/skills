@@ -22,6 +22,16 @@ When a Flutter app has multiple entrypoints (e.g., `main_dev.dart`, `main_prod.d
 
 ## 1. Xcode Cloud (`ci_post_clone.sh`)
 
+### Development and production workflows
+
+- For explicitly dual-environment apps such as Xealth Admin and Employee, configure separate Xcode Cloud workflows triggered only by `development` and `production` respectively. No additional `internaltest` branch or iOS Fastlane lane is needed.
+- Set custom workflow variable `XEALTH_APP_ENVIRONMENT=development` or `production`. The post-clone script must require this variable and Xcode Cloud's `CI_BRANCH`, select `main_dev.dart`/`main_prod.dart`, and reject unknown or mismatched environments before installing/configuring anything. Accept plain branch names and normalize an optional `refs/heads/` prefix.
+- Configure this variable in the existing production workflow before promoting script changes; missing values should fail safely, not silently choose production. Preserve existing production-only apps unless explicitly migrated; use `reference/ci_post_clone_dual_environment.sh` for the strict two-target contract.
+- Add an iOS archive action and TestFlight internal-testing post-action with the intended tester group to the development workflow. Retain the existing production distribution process, bundle ID and signing configuration. Apple workflow settings live in Xcode/App Store Connect, not GitHub Actions YAML; report UI setup as pending unless actually configured.
+- Keep archive/signing/upload responsibilities in Xcode Cloud. Post-clone scripts only prepare dependencies and generate Flutter iOS configuration with `--config-only --no-codesign`. Install CocoaPods only if `ios/Podfile` exists.
+- Do not use `set -x` in credential-bearing build scripts. Keep script mode `100755` and avoid logging secret environment values.
+- Both workflows upload to the same App Store Connect app. Coordinate unique build numbers and inspect resolved `CFBundleVersion`; do not assume Xcode Cloud uses `pubspec.yaml`'s build number. Development TestFlight replaces the same installed app identity; it is not a separate app.
+
 When using Xcode Cloud for TestFlight or automated App Store releases:
 
 - **Executable Script**: Commit `ios/ci_scripts/ci_post_clone.sh` with executable mode `100755`; run `git add --chmod=+x ios/ci_scripts/ci_post_clone.sh` before committing it.
@@ -68,4 +78,12 @@ Modern Flutter apps often use Swift Package Manager (SPM).
 
 You can find generic templates in the `reference/` directory of this skill:
 - `reference/ci_post_clone.sh`
+- `reference/ci_post_clone_dual_environment.sh`
 - `reference/appstorerelease.sh`
+
+## Verification
+
+- Run `sh -n` on modified post-clone scripts and verify executable mode.
+- Use isolated fake Flutter/git/pod commands to test both environments, branch-prefix normalization, missing/unknown variables, branch mismatches, absent entrypoints and conditional CocoaPods/SPM paths without network calls or signing/uploads.
+- Verify only configuration builds are invoked, without full iOS builds in post-clone.
+- Actual archives, signing and TestFlight distribution require macOS/Xcode Cloud; Linux checks cannot validate those steps. Confirm workflow triggers, custom variables, archive actions, tester groups and build-number settings in Apple's UI before release.
