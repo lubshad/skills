@@ -1,11 +1,11 @@
 ---
 name: frappe-deployment
-description: Use when creating, changing, or explaining GitHub Actions production deployment for Frappe apps, including deploy branch promotion and the remote Bench lifecycle.
+description: Use when creating, changing, or explaining GitHub Actions development or production deployment for Frappe apps, including deploy branch promotion and the remote Bench lifecycle.
 ---
 
 # Frappe Deployment
 
-Use this skill for the Frappe-specific lifecycle inside GitHub Actions production deployments and for the `deploy` branch-promotion flow that triggers them.
+Use this skill for the Frappe-specific lifecycle inside GitHub Actions development and production deployments and for the `deploy` branch-promotion flow that triggers them.
 
 ## When To Apply
 
@@ -17,9 +17,18 @@ Use this skill for the Frappe-specific lifecycle inside GitHub Actions productio
 
 ## Required Deployment Artifacts
 
+### Dual-environment deployment contract
+
+- For explicitly requested two-environment deployments, including Xealth, `./deploy` promotes to `development` and backs up to `development-backup`; `./deploy --prod` promotes to `production` and backs up to `production-backup`.
+- Use `.github/workflows/deploy-development.yml` and `.github/workflows/deploy-production.yml`, with separate environments, credentials, and concurrency groups. Manual retries must reject any ref other than their matching deployment branch.
+- The dual-environment reference is `github-actions-deployment/reference/frappe-deploy`. Reject unknown flags, dirty worktrees, detached HEAD, and all four deployment/backup source branches.
+- Capture the target and backup OIDs after fetching. Use explicit `--force-with-lease=<ref>:<expected-oid>` for both pushes so a later fetch cannot weaken the target lease. An absent backup uses an empty expected OID; a missing target fails with initialization guidance.
+- Back up only the selected target's previous commit. Never initialize or push release branches as routine verification; initialization can trigger deployment.
+- Preserve existing production-only helpers and unrelated target modes unless the user explicitly requests migration. The legacy production-only defaults below apply to those apps, not to Xealth's dual-environment contract.
+
 - Keep `.github/workflows/deploy-production.yml` in the Frappe app's actual Git repository.
 - Keep `deploy` in that repository root and make it executable.
-- `./deploy` currently promotes to `production` by default and backs it up to `production-backup`; the reference helper supports only that target.
+- Existing production-only apps use `./deploy` to promote to `production` and back up to `production-backup`; when using the current dual-environment reference, provide both workflows or deliberately adapt it to that app's existing contract.
 - Planned interface: `./deploy --internaltest` will promote to `internaltest` after backing up that branch's previous ref to `internaltest-backup`. The flag is not currently implemented; add support only when requested, with a matching workflow and target-specific safety guards, while retaining the default production behavior.
 - Use a dedicated remote `production` branch as the deployment trigger.
 - Maintain a remote `production-backup` branch containing the production ref that existed before the latest promotion.
@@ -53,7 +62,7 @@ Use this skill for the Frappe-specific lifecycle inside GitHub Actions productio
 ## Workflow Lifecycle
 
 - Start from `.agents/skills/github-actions-deployment/reference/frappe-production.yml`.
-- Check out the pushed production commit and validate all required variables and secrets.
+- Check out the pushed target commit and validate all required variables and secrets.
 - Configure a temporary step-scoped SSH private key and seed `known_hosts`.
 - Validate the remote Bench before syncing.
 - Rsync only the app repository into `<bench-dir>/apps/<app-name>` and exclude repository metadata, workflows, local environments, caches, and credential files.
@@ -114,6 +123,11 @@ Use this skill for the Frappe-specific lifecycle inside GitHub Actions productio
 - Verify public HTTPS using `/api/method/frappe.ping` and require `message=pong`, not a successful homepage response.
 
 ## Xealth-Specific Notes
+
+- Xealth uses `./deploy` for development (`backend-dev.xealth.ca`) and `./deploy --prod` for production (`backend.xealth.ca`); `goproduction` is renamed to `deploy`, and `--dev` is not supported.
+- Development repository variables: `XEALTH_DEV_DEPLOY_HOST`, `XEALTH_DEV_DEPLOY_USER`, optional `XEALTH_DEV_DEPLOY_PORT` (22), `XEALTH_DEV_BENCH_DIR`, `XEALTH_DEV_SITE`, and absolute HTTPS `XEALTH_DEV_PUBLIC_URL`. Its separate SSH key secret is `XEALTH_DEV_DEPLOY_KEY`.
+- Keep existing production `XEALTH_DEPLOY_HOST`, `XEALTH_DEPLOY_USER`, `XEALTH_DEPLOY_KEY`, and optional `XEALTH_DEPLOY_PORT` secrets unchanged. Do not guess a development key or reuse production credentials without verifying authorization; upload private key material securely without printing or committing it.
+- Development health verification uses `/api/method/frappe.ping` and requires `message=pong`. Servers/sites are provisioned separately; the promotion helper must not SSH or provision them.
 
 - `apps/xealth/setup_server.sh` is a local server-provisioning wrapper, not just an app deploy script.
 - Xealth setup must preserve direct `frappe` SSH access by unlocking the account if needed and copying the root/login user's `authorized_keys` to `/home/frappe/.ssh/authorized_keys` during provisioning.

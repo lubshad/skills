@@ -100,6 +100,14 @@ For `setup_certbot.sh`:
 
 ## GitHub Actions
 
+### Dual-environment Flutter web releases
+
+- For explicitly migrated apps, `./deploy` promotes `development`/`development-backup`; `./deploy --prod` promotes `production`/`production-backup`. This branch helper is separate from `deploy.sh`.
+- Add a development workflow building `lib/main_dev.dart`, while keeping production on `lib/main_prod.dart`. Verify the development app configuration uses development API, site and socket domains; a differently named entrypoint alone does not ensure isolation.
+- Use distinct target environments, host/path/public-URL variables, and concurrency groups. Require the matching branch for manual retries. Keep private keys step-scoped and clean them up even on failure.
+- Xealth Admin development uses `backend-dev.xealth.ca` for SSH/API, `adminpanel-dev.xealth.ca` for web/sockets, `root`, and `/var/www/xealth_admin` on the separate dev host. GitHub variables are `XEALTH_ADMIN_DEV_SSH_HOST`, `XEALTH_ADMIN_DEV_SSH_USER`, optional `XEALTH_ADMIN_DEV_SSH_PORT`, `XEALTH_ADMIN_DEV_REMOTE_PATH`, and `XEALTH_ADMIN_DEV_PUBLIC_URL`; its SSH secret is `XEALTH_ADMIN_DEV_SSH_PRIVATE_KEY`.
+- Preserve existing production workflows and local script defaults unless asked to migrate them. Verify remote artifacts plus public HTTPS; DNS, nginx and TLS provisioning remain separate.
+
 For Flutter web deploy workflows:
 
 - Start from `../github-actions-deployment/reference/flutter-web-production.yml`

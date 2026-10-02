@@ -15,6 +15,13 @@ Use this skill when implementing automated Play Store deployments for Flutter An
 
 ## Entrypoints
 
+- For explicitly requested development/internal testing releases, build `-t lib/main_dev.dart` and use Fastlane's `internal` track; production must remain on `main_prod.dart` and `production`.
+- Xealth Employee's `./deploy` promotes `development`/`development-backup`; `./deploy --prod` promotes `production`/`production-backup`. `playstorerelease.sh development` selects Fastlane lane `internaltest` (Play track `internal`); no argument retains production behavior.
+- Xealth Admin also has an Android development workflow on `development` invoking `internaltest` with `main_dev.dart`, alongside its development web deploy. It reuses the existing Play secret `XEALTH_ADMIN_PLAY_CREDENTIALS_JSON` and signing identity, shares concurrency with Android production, and preserves `production` and legacy `release` script/lane behavior. Neither Xealth app needs an `internaltest` branch or deploy flag.
+- When both tracks use the same Play package/signing identity, use the same concurrency group for both workflows and ensure each uploaded version code exceeds all prior uploads. Internal testing is not a separate installed app; confirm testers understand it uses the development backend.
+- Reconstruct signing and service-account files from secrets for both workflows, with normalized CI-relative keystore paths and cleanup after failure. Do not print credentials. Existing tracked credentials require separately coordinated rotation/history cleanup; ignore rules alone do not remove them.
+- Xealth Employee secrets: `XEALTH_EMPLOYEE_ANDROID_KEYSTORE_BASE64`, `XEALTH_EMPLOYEE_ANDROID_KEY_PROPERTIES`, and `XEALTH_EMPLOYEE_PLAY_CREDENTIALS_JSON`. Its development workflow uses a guarded `development` ref and environment; production behavior and application ID stay unchanged.
+
 When a Flutter app has multiple entrypoints (e.g., `main_dev.dart`, `main_prod.dart`), specify the production target when building the app bundle:
 - Use `-t lib/main_prod.dart` for the production Play Store release.
 

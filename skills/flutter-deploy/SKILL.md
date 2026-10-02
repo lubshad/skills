@@ -10,8 +10,18 @@ deployment branch such as `production`.
 
 ## Core Conventions
 
+### Explicit dual-environment contract
+
+- Xealth Admin and Xealth Employee use `./deploy` for `development` with `development-backup`, and `./deploy --prod` for `production` with `production-backup`. Preserve `major|minor|patch|build` and `--message` arguments independently of target selection; default version bump remains `patch`.
+- Require a clean worktree and the documented source branch (`main` for these apps). Reject detached HEAD, all deployment/backup source branches, unknown flags, and a behind/diverged source. Require the selected remote target before changing versions; initialization is a separate approved operation that can trigger a release.
+- Commit only the version file, push the source, fetch, capture target and backup OIDs, then back up and promote using explicit `--force-with-lease=<ref>:<expected-oid>` guards. Never copy production into the development backup.
+- Xealth Admin development deploys web using `main_dev.dart`, `backend-dev.xealth.ca`, and `adminpanel-dev.xealth.ca`, and also publishes Android to Play internal testing through Fastlane lane `internaltest`; retain production Android/Windows workflows.
+- Xealth Employee development builds `main_dev.dart` and invokes Fastlane lane `internaltest` to upload to Google Play `internal` with the existing package/signing identity. Production builds `main_prod.dart` and retains its `azhar` merge-back. Both Play tracks share concurrency because they edit the same application; version codes must exceed all prior uploads. For both Xealth Flutter apps, internal testing runs on `development`, not a separate `internaltest` branch or deploy flag.
+- Keep the branch helper `deploy` separate from an existing local build/sync utility `deploy.sh`.
+- The production-only conventions and reference below remain for apps not explicitly migrated. Current dual-environment examples are `flutter_apps/xealth_admin/deploy` and `flutter_apps/xealth_employee/deploy`; do not silently change other apps' release interfaces.
+
 - Keep `deploy` and `version_increment.sh` in the Flutter repository root.
-- `./deploy` currently targets `production` by default and supports no alternative release target. Existing arguments such as `build` and `patch` select version-bump modes, not branches.
+- Existing production-only helpers target `production` by default. Existing arguments such as `build` and `patch` select version-bump modes, not branches. Explicitly migrated dual-environment apps follow the contract above instead.
 - Planned target-selection interface: `./deploy` uses `production` with `production-backup`; `./deploy --internaltest` will use `internaltest` with `internaltest-backup`. Keep target selection separate from version-bump arguments such as `build` and `patch`.
 - The `--internaltest` flag is not supported by current reference scripts. Implement it only when requested, with a matching workflow and target-specific safety guards; back up the selected target's previous ref and preserve the default production behavior.
 - Start both scripts with `#!/bin/bash` and `set -euo pipefail`.
@@ -65,6 +75,8 @@ The reference promotion script accepts:
   release policy instead of weakening the script to unrestricted force pushes.
 
 ## Verification
+
+- Test both targets and their backups in disposable local Git remotes, including version arguments, dirty/non-main guards, missing targets before version changes, and production-only merge-back. Do not run either real release command during verification.
 
 Run these checks without triggering a release:
 

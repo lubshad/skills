@@ -22,7 +22,15 @@ Use this skill when creating or updating GitHub Actions workflows that build, re
 
 ## Workflow Pattern
 
-- `./deploy` defaults to promoting the source branch to `production`; current reference scripts use `production` as their only release target.
+### Two-environment deployments
+
+- When explicitly requested, use `./deploy` for `development` with `development-backup`, and `./deploy --prod` for `production` with `production-backup`. Xealth follows this contract. Reject unknown flags rather than silently selecting a target.
+- Provide distinct development and production workflows, GitHub environments, SSH configuration, public URLs, and non-cancelling concurrency groups. Manual dispatch must validate the matching deployment ref before checkout or SSH.
+- Require a clean named source branch and reject both deployment branches and both backups as sources. Back up the selected target's previous OID before promotion, using explicit expected-OID force-with-lease protection for each ref update.
+- Use repository variables for non-sensitive development configuration and a separate SSH-key secret. Inspect existing GitHub entries before updating; do not overwrite unrelated production configuration or expose private key values.
+- The Frappe `reference/frappe-deploy` implements this two-environment interface. Existing production-only apps and other target modes retain their contracts unless explicitly migrated; the legacy defaults below describe those apps.
+
+- Existing production-only helpers default to promoting the source branch to `production`; the dual-environment Frappe reference instead defaults to `development` and requires `--prod` for production.
 - Planned target-selection interface: `./deploy` uses `production` with `production-backup`; `./deploy --internaltest` will use `internaltest` with `internaltest-backup`. The backup must contain the selected target's previous ref, never another target's ref.
 - The `--internaltest` flag is a future contract, not supported by current reference scripts. Implement it only when requested, with a matching workflow trigger and target-specific safety guards; preserve the default production behavior.
 - Prefer `on.push.branches` for deployment branches and add `workflow_dispatch` for manual retries
@@ -96,11 +104,11 @@ It supports optional `PIPECAT_SSH_PORT`, defaulting to `22`.
 
 - Read `frappe-deployment.md` alongside this skill for Frappe-specific install, migration, build, and restart behavior.
 - Start from `reference/frappe-production.yml` and rename its generic `FRAPPE_*` secrets and variables only when an app-specific prefix improves repository clarity.
-- Add `deploy` from `reference/frappe-deploy` in the Frappe app repository root whenever adding a production workflow.
-- Deploy only from a dedicated `production` branch and keep `workflow_dispatch` for guarded retries of the same workflow.
+- Add `deploy` from `reference/frappe-deploy` for dual-environment Frappe deployments, along with both target workflows. For production-only apps, adapt its target selection to preserve that app's existing contract.
+- Deploy from dedicated target branches (`production`, plus `development` for dual-environment apps) and keep `workflow_dispatch` for guarded retries of the matching workflow.
 - Initialize remote `production` and `production-backup` branches from the intended baseline before normal promotion begins.
-- Use `deploy` as the normal release entry point: it backs up the current remote production ref, then promotes the current clean branch with `--force-with-lease`.
-- Keep deployment operations out of `deploy`; the production push must be the only action that triggers source sync, migration, restart, and health verification.
+- Use `deploy` as the normal release entry point: it backs up the selected remote target ref, then promotes the current clean branch with `--force-with-lease`.
+- Keep deployment operations out of `deploy`; the selected deployment branch push triggers source sync, migration, restart, and health verification through its matching workflow.
 - Do not create new Frappe `sync.sh` scripts or document manual rsync as the standard deployment path.
 - Sync the checked-out app source into `<bench-dir>/apps/<app-name>`; Frappe editable installs intentionally deploy source rather than a standalone build artifact.
 - Exclude repository metadata, workflow files, virtual environments, caches, and local credential files from rsync.
@@ -128,6 +136,10 @@ It supports optional `FRAPPE_SSH_PORT` and these optional variables:
 - `FRAPPE_RUN_BUILD`, defaulting to `false`
 
 ## Flutter Static Web Deployments
+
+- Xealth Admin is explicitly dual-target: default `./deploy` triggers development web on `adminpanel-dev.xealth.ca`, while `--prod` triggers existing production releases. Read `flutter-deploy.md` and `flutter-web-deployment.md` for target selection and app-specific configuration.
+- Xealth Employee uses the same branch interface for Google Play internal vs production, not web hosting; read `flutter-android-release.md`. Both tracks intentionally share a Play concurrency group and signing/application identity.
+- Xealth Voice Assistant also follows this branch interface; its dev workflow reuses the authorized production SSH-key secret as requested, but changes the host to `twilio-dev.xealth.ca`. Do not assume runtime provisioning or secret authorization has completed.
 
 - Read `flutter-web-deployment.md` alongside this skill.
 - Start from `reference/flutter-web-production.yml` and rename its generic
@@ -169,6 +181,8 @@ It supports optional `FLUTTER_WEB_SSH_PORT`, `FLUTTER_WEB_REMOTE_PATH`, and
 - For Pipecat bot production deployments, combine this skill with `pipecat-self-hosting.md`; use its Docker guidance only for an explicit existing Docker deployment
 
 ## Verification
+
+- For dual-environment helpers, test default development selection and explicit `--prod`, target-specific backup refs, unknown flags, all four branch guards, and stale leases in a disposable local Git repository. Never push real deployment refs during tests.
 
 - Confirm the workflow is inside the actual deployable Git repository.
 - Parse or lint the workflow YAML when tooling is available.

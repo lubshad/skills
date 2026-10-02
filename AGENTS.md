@@ -157,8 +157,8 @@ For Pipecat self-hosting and production deployment, read `pipecat-self-hosting.m
 | `frontend-api-client.md` | Shared HTTP client ownership, auth injection, credential safety, and session expiration for any frontend platform |
 | `project-connections.md` | Project app mappings, site URLs, app paths, environment config |
 | `pipecat-self-hosting.md` | Pipecat self-hosting with default uv and systemd production deployment plus Docker Compose guidance for existing containerized bots |
-| `github-actions-deployment.md` | Any GitHub Actions workflow that builds, releases, or deploys code, including production-branch promotion helpers |
-| `frappe-deployment.md` | Frappe app production deployment through GitHub Actions, `deploy`, and the remote Bench lifecycle |
+| `github-actions-deployment.md` | Any GitHub Actions workflow that builds, releases, or deploys code, including development and production branch promotion helpers |
+| `frappe-deployment.md` | Frappe app development and production deployment through GitHub Actions, `deploy`, and the remote Bench lifecycle |
 | `frappe-backup.md` | Frappe site backup/download/restore sync scripts and explaining or changing backup sync flow |
 | `event-based-refresh.md` | Cross-component refresh/invalidation after shared frontend context changes, such as default role/sport or active profile |
 | `project-scaffolding.md` | Creating or bootstrapping applications; creating/updating local run scripts and safe restart launchers |

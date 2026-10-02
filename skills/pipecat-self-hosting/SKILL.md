@@ -15,12 +15,24 @@ Use this skill for every self-hosted Pipecat deployment. New production bots run
 
 ## Systemd Deployments
 
-### Production Contract
+### Deployment Contracts
+
+### Explicit dual-environment deployments
+
+- For migrated bots such as Xealth Voice Assistant, `./deploy` promotes `development` after backing it up to `development-backup`, and `./deploy --prod` promotes `production` after backing it up to `production-backup`.
+- Require clean named source branches, reject all four deployment/backup branches, and use captured expected-OID leases for both ref updates. Missing targets require approved initialization; never push target refs as routine verification.
+- Add a separate development workflow with its own environment/concurrency and matching-ref guard. Keep the same bounded upload, atomic replacement, non-blocking restart, local/public health, and rollback lifecycle. Do not copy `.env` or provider keys.
+- Xealth dev host/public URL: `twilio-dev.xealth.ca`; runtime user/path/service remain `dockeruser`, `/home/dockeruser/xealth-voice-assistant`, and `xealth-voice-assistant.service` on a separate dev server. Server-managed `MCP_URL` must use `backend-dev.xealth.ca` and `PUBLIC_HOST` must use `twilio-dev.xealth.ca`.
+- Development variables: `XEALTH_DEV_SSH_HOST`, `XEALTH_DEV_SSH_USER`, optional `XEALTH_DEV_SSH_PORT`, `XEALTH_DEV_REMOTE_PATH`, `XEALTH_DEV_SERVICE_NAME`, `XEALTH_DEV_PUBLIC_URL`. Xealth intentionally reuses its existing repository `XEALTH_SSH_PRIVATE_KEY` secret as requested; authorization on the dev host must be verified before release.
+- Never reuse the same service/path on the same physical host for both targets. Host provisioning is separate; missing users/services/runtime or GitHub environment-management permission must be reported rather than silently deploying to production.
+- The production-only reference/defaults below apply to bots not explicitly migrated. The dual-target example is `pipecat_bots/xealth-voice-assistant/deploy`; preserve other bots' existing contracts.
+
+### Existing production-only contract
 
 - Keep `.env`, `.venv`, `pyproject.toml`, and `uv.lock` server-managed unless a release explicitly changes dependencies.
 - Routine releases sync only `server/bot.py` to the remote runtime directory as `bot.py`.
 - Deploy from a dedicated `production` branch and retain `workflow_dispatch` for retries.
-- `./deploy` currently promotes to `production` by default and backs it up to `production-backup`; current reference scripts support only that release target.
+- Existing production-only helpers promote to `production` by default and back it up to `production-backup`; migrated two-target bots use the contract above.
 - Planned interface: `./deploy --internaltest` will promote to `internaltest` after backing up that branch's previous ref to `internaltest-backup`. The flag is not currently implemented; add support only when requested, with a matching workflow and target-specific safety guards, while retaining the default production behavior.
 - Copy `../github-actions-deployment/reference/pipecat-deploy` to the repository root as `deploy` to back up and promote production.
 - Never commit runtime provider keys or place the production `.env` in GitHub Actions.
