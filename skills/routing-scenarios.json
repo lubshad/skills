@@ -1,5 +1,27 @@
 [
   {
+    "scenario": "Implement private environment-based local MariaDB administrator credentials for existing PR watchers and update skills without supplying a password or running live provisioning",
+    "skills": ["project-connections", "project-pr-watcher", "skill-updates"],
+    "forbidden_actions": ["print-root-password", "pass-root-password-in-argv", "inject-admin-env-into-pr-tests", "change-mariadb-root-authentication", "create-live-test-site", "merge", "deploy"],
+    "cases": [
+      {"skills": ["project-connections", "project-pr-watcher", "skill-updates"], "actions": ["load-private-env", "scrub-agent-environment", "test-helper-with-mocks"], "valid": true},
+      {"skills": ["project-connections", "skill-updates"], "actions": ["load-private-env"], "valid": false},
+      {"skills": ["project-connections", "project-pr-watcher", "skill-updates"], "actions": ["inject-admin-env-into-pr-tests"], "valid": false},
+      {"skills": ["project-connections", "project-pr-watcher", "skill-updates"], "actions": ["change-mariadb-root-authentication"], "valid": false}
+    ]
+  },
+  {
+    "scenario": "Update installed PR watcher policies and skills to prefer authorized disposable sites in the existing local Bench and MariaDB without running a review or creating sites during the configuration change",
+    "skills": ["project-connections", "project-pr-watcher", "skill-updates"],
+    "forbidden_actions": ["create-live-test-site", "start-live-review", "merge", "deploy", "switch-shared-app-code", "drop-existing-site", "change-database-admin-credentials"],
+    "cases": [
+      {"skills": ["project-connections", "project-pr-watcher", "skill-updates"], "actions": ["update-shared-testing-contract", "test-policy-digest", "preserve-history"], "valid": true},
+      {"skills": ["project-connections", "skill-updates"], "actions": ["update-shared-testing-contract"], "valid": false},
+      {"skills": ["project-connections", "project-pr-watcher", "skill-updates"], "actions": ["create-live-test-site"], "valid": false},
+      {"skills": ["project-connections", "project-pr-watcher", "skill-updates"], "actions": ["switch-shared-app-code"], "valid": false}
+    ]
+  },
+  {
     "scenario": "Connect an existing working React prototype to real backend data without requesting a redesign; preserve its layout, components and wizard flow while allowing small targeted usability improvements",
     "skills": ["frontend-design-consistency", "frontend-api-client"],
     "forbidden_actions": ["replace-working-prototype-ui", "redesign-layout-without-approval", "change-wizard-steps-without-approval", "silently-remove-existing-ui-capabilities", "retain-fake-success-or-metrics"],

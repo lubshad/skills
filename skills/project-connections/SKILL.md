@@ -10,6 +10,7 @@ Reference map for all apps, sites, and their connections in this bench.
 | Site | Purpose |
 |------|---------|
 | `sites/mcal.localhost` | Exam management system |
+| `sites/lms.localhost` | COREAXIS LMS shared backend |
 | `sites/masar.localhost` | Masar sports platform |
 | `sites/omor.localhost` | Omor ERPNext/Frappe accounting site |
 | `sites/sync-dating.localhost` | Sync Dating Frappe app site |
@@ -18,7 +19,7 @@ Reference map for all apps, sites, and their connections in this bench.
 
 ## Local Frontend Networking Standard
 
-**Crucial Standard:** When developing local frontend web applications (Next.js, Flutter Web, React, etc.) that connect to a local Frappe backend, **you must run the frontend development server using the exact same hostname as the Frappe site**, but on a different port.
+**Crucial Standard:** When developing local frontend web applications (Next.js, Flutter Web, React, etc.) that connect to a local Frappe backend, **you must run the frontend development server using the exact same hostname as the Frappe site**, but on a different port. COREAXIS LMS is an explicit exception: use its separate frontend hostnames from the registry and project section below.
 
 **Do not use `localhost` or `127.0.0.1`** as the frontend dev server host. Instead, use the Frappe site's hostname (e.g., `masar.localhost`, `mcal.localhost`).
 
@@ -38,6 +39,8 @@ Reference map for all apps, sites, and their connections in this bench.
 | Zeronic web | `http://zeronic.localhost:8080` | Run `npm run dev` in `react_apps/zeronic/` |
 | Exam admin | `http://mcal.localhost:8081` | `./run_lms_admin.sh mcal local --port 8081 -- --web-hostname mcal.localhost` |
 | Exam student | `http://mcal.localhost:8082` | `./run_lms_student.sh mcal local --port 8082 -- --web-hostname mcal.localhost` |
+| COREAXIS LMS admin | `http://lmsadmin.localhost:8083` | Run Flutter web in `flutter_apps/frappe_lms_admin/` with `--web-hostname lmsadmin.localhost --web-port 8083` |
+| COREAXIS LMS student | `http://lmsstudent.localhost:8084` | Run Flutter web in `flutter_apps/frappe_lms_student/` with `--web-hostname lmsstudent.localhost --web-port 8084` |
 | Xealth admin | `http://xealth.localhost:8085` | `./run_xealth_admin.sh --env local` |
 
 Native mobile applications do not have a browser URL. Run them on their assigned simulator or device and keep their API endpoint from the project environment configuration.
@@ -123,6 +126,36 @@ All Frappe API calls follow: `{MASAR_API_BASE_URL}/api/method/masar.api.<method_
 | API base URL (dev) | `http://mcal.localhost:8000` | Local MCAL Frappe API host |
 | Admin local URL | `http://mcal.localhost:8081` | Required URL for local runs, tests, and Playwright |
 | Student local URL | `http://mcal.localhost:8082` | Required URL for local runs, tests, and Playwright |
+
+## COREAXIS LMS
+
+COREAXIS LMS consists of a shared Frappe backend and Flutter administrator and student applications. This project mapping is tenant-neutral; production connections and deployment details belong in tenant-specific documentation.
+
+### Components and Local Connections
+
+| Component | Location | Required local URL |
+|-----------|----------|--------------------|
+| Backend / Frappe Desk | `apps/lms_custom/` | `http://lms.localhost:8000` |
+| Admin frontend | `flutter_apps/frappe_lms_admin/` | `http://lmsadmin.localhost:8083` |
+| Student frontend | `flutter_apps/frappe_lms_student/` | `http://lmsstudent.localhost:8084` |
+
+These addresses define the required local setup; they do not imply that the site or services are already configured or running.
+
+- The local Frappe site name is `lms.localhost`. Both frontends use `http://lms.localhost:8000` as their API base URL.
+- Reserve port `8083` for the admin frontend and `8084` for the student frontend. Use the listed URLs for local runs, manual testing, and browser automation; do not silently fall back to another port.
+- Run the admin Flutter web app with `--web-hostname lmsadmin.localhost --web-port 8083` and the student app with `--web-hostname lmsstudent.localhost --web-port 8084`.
+- All three hostnames must resolve to the local development machine.
+- Frappe CORS must allow `http://lmsadmin.localhost:8083` and `http://lmsstudent.localhost:8084`. If cookie authentication or realtime is used, configure those connections for the separate frontend origins as well.
+- The separate frontend hostnames are an explicit exception to this skill's same-hostname convention. This local connection table takes precedence for these two frontends.
+
+### API Configuration References
+
+| Component | Configuration file |
+|-----------|--------------------|
+| Admin frontend | `flutter_apps/frappe_lms_admin/lib/core/config/app_config.dart` |
+| Student frontend | `flutter_apps/frappe_lms_student/lib/core/config/app_config.dart` |
+
+Both Flutter applications support an `API_BASE_URL` override. Read backend URLs from application configuration and use the local backend URL above for this setup.
 
 ## Xealth Project
 

@@ -33,6 +33,8 @@ Follow these Python rules strictly when working on Frappe apps.
 - Keep writes idempotent when clients may retry after a timeout, especially for create, payment, workflow, or external-sync flows.
 
 ### Database
+
+- For watcher test provisioning use `.automation/database-access.md`: `PR_WATCH_DB_ADMIN_USER` / `PR_WATCH_DB_ADMIN_PASSWORD` are trusted-helper-only settings loaded from private env, not site connection overrides. Preallocate scoped test databases/users, bootstrap with `setup_db=False`, and run app/tests without admin settings. Never put root credentials in shared/site configuration, arguments, prompts or logs. Keep guarded ownership-based disposal and durable evidence; same-UID private files are not a hostile-code security boundary.
 - Use `frappe.get_doc`, `frappe.get_all`, `frappe.db.get_value` — never write raw SQL unless absolutely necessary.
 - Let Frappe manage the request transaction for ordinary whitelisted-method writes. Call `frappe.db.commit()` only at an intentional transaction boundary, such as a patch, a controlled batch, or code that must persist before subsequent independent work.
 - Check column existence with `frappe.db.has_column()` before accessing custom fields.
@@ -59,6 +61,7 @@ Follow these Python rules strictly when working on Frappe apps.
 
 ## Verification
 
+- When local test-site creation is authorized, prefer a new uniquely named site in the existing Bench using local MariaDB rather than requiring a private database daemon. Follow `.automation/local-bench-testing.md` for watcher jobs. A site isolates data, not shared app code or services: verify actual imported code/dependency SHAs and local modifications, protect existing sites, mock outbound effects, disable scheduling for the new site, and record ownership/evidence privately. Never switch or patch shared apps to test a PR. Use a separate exact-code test Bench with the same local MariaDB if revisions differ; fresh head installation does not prove baseline-to-head migration. Where disposal is authorized (as for the four installed watchers), automatically clean up proven-owned test site/database/user/files on success or failure, preserve logs and verify absence. Bench drop-site archives files: remove the owned archive too, never force-drop unknown resources. Record interrupted cleanup for scoped reconciliation. This testing guidance alone grants no unrelated site creation/deletion or infrastructure permission.
 - Run the focused test or create one for each changed whitelisted method, including permission-denied and invalid-input paths.
 - Verify writes roll back together when validation fails before the request completes.
 - Verify list and child-record access use bounded, batched queries.

@@ -4,45 +4,18 @@ Skills use the OpenCode package format at `.agents/skills/<name>/SKILL.md`. Refe
 For frontend/UI work, read the shared `frontend-*` product and interaction skills first, then the platform-specific implementation adapter.
 For backend work, any external API call or long-running function must not block the request unless synchronous behavior is explicitly required. Persist local state first and run the external work in a background job.
 
+## Response style
+
+Use ASD-STE100-inspired plain English. Keep answers brief, clear, and direct. Use short sentences and familiar words. Include only essential details unless asked for more. Preserve important warnings and uncertainty.
+
 ## Platforms
 
-| Platform | Location | Stack |
-|----------|----------|-------|
-| Mobile apps | `flutter_apps/*/`, `omor/omor_app/` | Flutter, Dio, BLoC |
-| Web app | `next_apps/masarnext/` | Next.js, TypeScript, CSS Modules |
-| React web apps | `react_apps/*/` | React, TypeScript, Vite; shared browser API client |
-| Masar Admin | `flutter_apps/masar_admin/` | Flutter, BLoC, desktop-first, web/Chrome deployment |
-| Backend | `apps/masar/` + other Frappe apps | Python, Frappe framework |
+- Mobile and admin apps: Flutter, Dio, BLoC.
+- Next.js web apps: TypeScript, CSS Modules.
+- React web apps: TypeScript, Vite, shared browser API client.
+- Backend: Python, Frappe; some projects use Django/DRF.
 
-## COREAXIS LMS
-
-COREAXIS LMS consists of a shared Frappe backend and Flutter administrator and student applications. This project mapping is tenant-neutral; production connections and deployment details belong in tenant-specific documentation.
-
-### Components and Local Connections
-
-| Component | Location | Required local URL |
-|-----------|----------|--------------------|
-| Backend / Frappe Desk | `apps/lms_custom/` | `http://lms.localhost:8000` |
-| Admin frontend | `flutter_apps/frappe_lms_admin/` | `http://lmsadmin.localhost:8083` |
-| Student frontend | `flutter_apps/frappe_lms_student/` | `http://lmsstudent.localhost:8084` |
-
-These addresses define the required local setup; they do not imply that the site or services are already configured or running.
-
-- The local Frappe site name is `lms.localhost`. Both frontends use `http://lms.localhost:8000` as their API base URL.
-- Reserve port `8083` for the admin frontend and `8084` for the student frontend. Use the listed URLs for local runs, manual testing, and browser automation; do not silently fall back to another port.
-- Run the admin Flutter web app with `--web-hostname lmsadmin.localhost --web-port 8083` and the student app with `--web-hostname lmsstudent.localhost --web-port 8084`.
-- All three hostnames must resolve to the local development machine.
-- Frappe CORS must allow `http://lmsadmin.localhost:8083` and `http://lmsstudent.localhost:8084`. If cookie authentication or realtime is used, configure those connections for the separate frontend origins as well.
-- The separate frontend hostnames are an explicit COREAXIS LMS exception to the same-hostname convention in `project-connections.md`. This local connection table takes precedence for these two frontends.
-
-### API Configuration References
-
-| Component | Configuration file |
-|-----------|--------------------|
-| Admin frontend | `flutter_apps/frappe_lms_admin/lib/core/config/app_config.dart` |
-| Student frontend | `flutter_apps/frappe_lms_student/lib/core/config/app_config.dart` |
-
-Both Flutter applications support an `API_BASE_URL` override. Read backend URLs from application configuration and use the local backend URL above for this setup.
+Read `project-connections.md` before locating connected apps or using project URLs, ports, environment settings, or deployment targets. It owns project paths, connection registries, and project-specific exceptions.
 
 ## Reading Order
 
@@ -50,7 +23,7 @@ Both Flutter applications support an `API_BASE_URL` override. Read backend URLs 
 
 - Route by the behavior being changed, not every surface present in the file. A copy-only correction does not activate form, layout, networking, or state-management skills unless those behaviors also change. Platform-wide requirements such as Flutter linting still apply.
 - Required companions apply when their stated trigger is met. Optional companions are not a blanket reading list. Follow the sequences below for the relevant workflow, not for unrelated edits inside that workflow's files.
-- Keep product rules in shared skills and implementation rules in platform adapters. This file owns routing, precedence, and workspace connections; avoid copying detailed skill rules here.
+- Keep product rules in shared skills, implementation rules in platform adapters, and project connections in `project-connections.md`. This file owns routing and precedence; avoid copying detailed skill rules here.
 - Reading a deployment, release, or destructive-action skill does not authorize executing those actions. Explanation-only requests remain read-only.
 - Treat recommendations as defaults with documented workflow exceptions. Security, permissions, data integrity, and explicit workspace constraints remain requirements; do not invent exceptions to them.
 

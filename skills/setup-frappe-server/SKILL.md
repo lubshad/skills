@@ -9,6 +9,7 @@ Use this skill when creating, adapting, or running a local SSH-based Frappe Benc
 
 ## When To Apply
 
+- Local disposable test-site setup in an existing Bench when explicitly authorized. This is a separate workflow from remote provisioning: use existing local MariaDB, not the remote setup script, sudo, or credential/service reconfiguration. Follow the local testing guidance below.
 - Creating a script that runs from a local machine and provisions a remote Frappe server over SSH
 - Creating the remote `frappe` Linux user, sudo access, and bench directory
 - Copying the SSH login user's `authorized_keys` to the remote bench user so the bench user can be accessed directly over SSH
@@ -18,6 +19,31 @@ Use this skill when creating, adapting, or running a local SSH-based Frappe Benc
 - Explaining or changing app-specific server setup wrappers such as `apps/xealth/setup_server.sh`
 
 ## Script
+
+### Existing local Bench test sites
+
+For watcher jobs follow `.automation/database-access.md`: read private
+`PR_WATCH_DB_ADMIN_USER` / `PR_WATCH_DB_ADMIN_PASSWORD` through the trusted helper,
+not unauthenticated root probes or changes to MariaDB authentication. Preallocate
+a DB-scoped test user/database, bootstrap separately with `setup_db=False`, and
+keep root credentials out of app/tests and all argv/logs. Dispose only recorded
+owned resources; do not change shared configuration or expose administrator secrets.
+
+Prefer new uniquely named test sites on the existing local MariaDB service when
+authorized; do not require starting a private daemon. For watcher jobs follow
+`.automation/local-bench-testing.md`. Verify actual imported app/dependency SHAs
+and local modifications: sites share source and services, so do not switch,
+overwrite or relink shared apps. If exact PR or baseline/head revisions differ,
+use a separate exact-code test Bench against the same local MariaDB instead.
+Use explicit site targets, generated fixtures, mocked outbound effects, disabled
+scheduling on the new site, cross-watcher locking and durable ownership records.
+Protect existing sites, default-site/configuration, credentials and services.
+For authorized disposable watcher sites, automatically dispose proven-owned
+site/database/dedicated-user/files after success or failure. Save logs first,
+verify ownership under locks, remove the drop-site archive as well, verify all
+resources absent and reconcile interrupted cleanup. Directory scratch cleanup
+alone is not database/site deletion. Never drop existing/unknown sites or force
+past identity checks. No production data or backup restore for tests.
 
 Use `.agents/scripts/setup_frappe_server.sh` from the local machine. The script connects to the remote server over SSH, installs server dependencies, configures MariaDB root access, creates the remote `frappe` Linux user when missing, ensures a remote swap file exists by default, and runs the full Frappe Bench setup remotely.
 
