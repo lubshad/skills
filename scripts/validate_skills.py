@@ -136,25 +136,34 @@ def validate_agent_index(skills_dir: Path) -> list[str]:
 		return [f"{agents_file}: cannot verify skill index because the file is missing"]
 
 	listed = set(SKILL_REFERENCE.findall(agents_file.read_text(encoding="utf-8")))
-	missing = sorted(
+	active = {
 		skill_dir.name
 		for skill_dir in skills_dir.iterdir()
-		if skill_dir.is_dir() and skill_dir.name not in listed
+		if skill_dir.is_dir()
+	}
+	errors = [
+		f"{agents_file}: active skill is absent from the index: {name}.md"
+		for name in sorted(active - listed)
+	]
+	errors.extend(
+		f"{agents_file}: index references unknown skill: {name}.md"
+		for name in sorted(listed - active)
 	)
-	return [f"{agents_file}: active skill is absent from the index: {name}.md" for name in missing]
+	return errors
 
 
 def main() -> int:
 	skills_dir = Path(__file__).resolve().parents[1] / "skills"
-	errors = validate(skills_dir)
-	warnings = quality_warnings(skills_dir) + validate_agent_index(skills_dir)
+	errors = validate(skills_dir) + validate_agent_index(skills_dir)
+	warnings = quality_warnings(skills_dir)
 	if errors:
 		print("Skill catalog validation failed:", file=sys.stderr)
 		for error in errors:
 			print(f"- {error}", file=sys.stderr)
 		return 1
 
-	print(f"Skill catalog valid: {len(list(skills_dir.iterdir()))} skill directories checked.")
+	skill_count = sum(skill_dir.is_dir() for skill_dir in skills_dir.iterdir())
+	print(f"Skill catalog valid: {skill_count} skill directories checked.")
 	if warnings:
 		print("Skill catalog quality warnings:")
 		for warning in warnings:
