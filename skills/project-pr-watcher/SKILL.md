@@ -24,6 +24,20 @@ Read `project-connections.md` first, then this skill, then applicable review and
 
 ## 2. Runner, Policy, and Scheduling
 
+- Runtime hardening and offline checks live in `.automation/README.md`. Keep
+  `.automation/` versioned independently; run its `python3 -B check.py` guardrail
+  and commit scoped code/configuration changes. Preserve unrelated workspace work.
+  A local workflow file is not active CI until an approved remote hosts it; creating
+  a repository or workflow grants no remote/push/deployment permission.
+- Before agent submission, reconcile PR-reported base SHAs with live branch refs
+  through shared `pr_watch_snapshot.py`. Deduplicate branch reads and parallelize
+  independent reads. Inconsistency fails closed as `snapshot_configuration_error`
+  without sessions, public starts or review-budget/cache writes. Later polling can
+  reconsider consistent metadata; never silently substitute a base or approve it.
+- Supply shared `pr_watch_context.py` exact-head/base checkpoints and unresolved
+  releases. Start from that view, finding `review_history` and continuation tasks;
+  read full audit files by selected keys only as needed. Preserve all unresolved
+  history; compact context neither transfers stale coverage nor grants approval.
 - Local MariaDB administrator access follows `.automation/database-access.md` and shared `pr_watch_db_credentials.py`/`pr_watch_db.py`. Explicitly read `PR_WATCH_DB_ADMIN_USER` and `PR_WATCH_DB_ADMIN_PASSWORD` from the private owner-only literal env file (default `~/.config/pr-watch/local-db.env`) or environment. Scrub settings before polling/agents; hand off only a short-lived private file path, never secrets in prompts/argv/logs. Only the trusted helper uses root credentials for check/owned database allocation/disposal; bootstrap/test separately with generated DB-scoped credentials and `setup_db=False`. No shared root-password/config changes or unauthenticated fallback. Nonsecret configuration status/file metadata or explicit access revision invalidates old access-blocker caches without hashing passwords. Mode 0600 is not isolation against hostile same-UID code. Missing credentials block DB validation, not independent review. Verify parsing, environment isolation, teardown, guarded DDL and redaction with mocks, not live mutations.
 - Prefer `.automation/<project>-pr-watch/{watch.py,policy.md,README.md}` with mocked runner tests. Reuse `.automation/pr_watch_runtime.py` where compatible; avoid duplicating its lock, cache, timeout, and process-management logic.
 - Keep repository scope and permissions explicit in the policy. Configure model ID, reasoning effort, and fallback behavior rather than inheriting UI defaults. The current LMS, uSafe, Xealth, and Sync Dating watchers use only `openai/gpt-6.1-terra` (GPT-6.1 Terra) at default effort, with no model fallback configured or authorized (`FALLBACK_MODEL = None`). The user explicitly authorized this switch for all four watchers on 2026-11-02; it is not evidence that Terra fixes incomplete reviews. Provider/model errors fail the cycle without another model attempt. New cycles use this configuration; already-running cycles retain their loaded configuration. This model is not authorization for other projects. Do not add or change authorized models or enable fallback without approval.
@@ -79,6 +93,11 @@ post retrospective comments or launch live reviews to apply configuration change
 New cycles use the changed digest; active cycles retain their loaded policy.
 
 - For Frappe runtime validation, follow `.automation/local-bench-testing.md`, appended and hashed by the shared runtime for all four installed watchers. The user authorizes new disposable test sites in this existing local Bench using its MariaDB service; prefer this over starting a private daemon when exact imported code and shared-service safety are verified. This is an explicit exception to scratch-only sites, not permission to alter existing sites, credentials, shared app code or infrastructure. Use the cross-watcher Bench lock and durable site/database ownership manifest. Automatically dispose proven-owned test sites, databases, dedicated users and archived files in supervisor finalization after success or failure; preserve logs, verify absence and record/reconcile cleanup failures. The scratch runner alone does not drop sites/databases. Never adopt unknown sites or force cleanup. If primary imports differ from reviewed SHAs, use a separate exact-code test Bench against local MariaDB without changing shared apps. Baseline-to-head verification needs separate code environments and upgrade evidence, not a fresh head install. Record unavailable safe access precisely; do not repeat private-daemon permission failures as the only route. New policy digests reconsider missing validation without deleting history or retrying failed deployments.
+- Database mutation calls must inherit the supervisor's already-held exclusive
+  lifecycle lock via `--lock-fd` and `pass_fds`; keep it held across allocation,
+  bootstrap, tests and final disposal. Follow `.automation/database-access.md`.
+  The trusted CLI rejects absent, shared, foreign or wrong descriptors before
+  credentials/DDL. A lock probe or environment assertion is not ownership proof.
 - Rely on OpenCode's automatically discovered workspace instructions and skill catalog at the verified workspace session location. Watcher prompts must not duplicate discovery through filesystem catalog scans, manual skill-file loading procedures, fixed skill shortlists, or mandatory per-cycle skill inventories. Automatic discovery makes skills available; relevant skill content still activates through the normal workspace workflow, not all skills at once.
 - Follow applicable workspace and repository-local guidance for the changed behavior without a watcher-specific loading layer. Record concrete review findings and validation evidence, not a mandatory skill coverage map. Review agents must not create skills or expand their authorization.
 - Fetch fresh PR metadata and exact head/base SHAs. Review the PR diff, including removed behavior. Read full changed files and relevant unchanged callers/tests for context, not as a whole-project audit.
@@ -168,6 +187,12 @@ New cycles use the changed digest; active cycles retain their loaded policy.
   pass. Login, lint or database allocation cannot substitute
   for unrun API/auth/permission tests. Legacy exact-identity results seed prior
   blockers and explicit missing-validation requirements without rewriting history.
+- Active validation requirements need structured `gate_source` with repository CI
+  or owner-acceptance reference and evidence, per `.automation/review-completion.md`.
+  Optional tool/audio/browser verification stays in `coverage.validation`.
+  `source_access` is reserved for demonstrated source-read failure in an unfinished
+  `blocked_external` review, not missing optional runtime tests. Retire historical
+  optional demands explicitly as `not_applicable`; never invent a gate or a pass.
 - Before merging, run the read-only evidence helper with the current record and
   matching history entry as documented in the shared contract. Errors block merge.
   Structural continuity checks do not attest review quality or replace fresh
