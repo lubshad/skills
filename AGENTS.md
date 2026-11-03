@@ -180,6 +180,13 @@ For creating, configuring, or reviewing project-wide scheduled PR watchers, read
 
 ## Completion Evidence
 
+- PR reviews focus on confirmed major code issues, not broad QA or optional manual
+  acceptance checks. See `project-pr-watcher.md` and `.automation/review-scope.md`.
+  The implementation checklists below do not create PR merge gates. Missing optional
+  screen-reader/audio/device/browser/local-tool verification is a nonblocking note,
+  not a defect or an author task. Preserve repository-required CI, explicit owner
+  gates, branch protections and release safety. Never claim an unrun check passed.
+
 - Report checks actually run, their results, and relevant checks left unverified. Do not describe a planned check as passed.
 - UI changes: check affected interactions, keyboard operation, and relevant viewport sizes; copy-only changes need not trigger unrelated interaction testing.
 - API changes: check permissions, invalid inputs, and the response contract. Background-job changes also check enqueue/commit ordering, observable failure state, and retry safety where applicable.

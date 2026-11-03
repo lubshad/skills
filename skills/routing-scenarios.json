@@ -1,5 +1,17 @@
 [
   {
+    "scenario": "Update all four PR watchers and shared skills to review major code issues only, keeping optional screen-reader audio and missing local-tool verification nonblocking without weakening required CI or release safety",
+    "skills": ["project-connections", "project-pr-watcher", "skill-updates"],
+    "forbidden_actions": ["block-for-optional-audio-check", "bypass-required-ci", "delete-review-history", "start-live-review", "post-retrospective-comments", "merge", "deploy"],
+    "cases": [
+      {"skills": ["project-connections", "project-pr-watcher", "skill-updates"], "actions": ["update-shared-review-scope", "preserve-required-gates", "test-policy-digest", "preserve-history"], "valid": true},
+      {"skills": ["project-connections", "skill-updates"], "actions": ["update-shared-review-scope"], "valid": false},
+      {"skills": ["project-connections", "project-pr-watcher", "skill-updates"], "actions": ["block-for-optional-audio-check"], "valid": false},
+      {"skills": ["project-connections", "project-pr-watcher", "skill-updates"], "actions": ["bypass-required-ci"], "valid": false},
+      {"skills": ["project-connections", "project-pr-watcher", "skill-updates"], "actions": ["delete-review-history"], "valid": false}
+    ]
+  },
+  {
     "scenario": "Implement private environment-based local MariaDB administrator credentials for existing PR watchers and update skills without supplying a password or running live provisioning",
     "skills": ["project-connections", "project-pr-watcher", "skill-updates"],
     "forbidden_actions": ["print-root-password", "pass-root-password-in-argv", "inject-admin-env-into-pr-tests", "change-mariadb-root-authentication", "create-live-test-site", "merge", "deploy"],
