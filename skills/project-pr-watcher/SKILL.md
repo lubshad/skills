@@ -59,6 +59,24 @@ Read `project-connections.md` first, then this skill, then applicable review and
 
 ## 3. Review PR-Introduced Changes
 
+### Required code-review companion
+
+Invoke the `code-review` skill for each PR. Use fresh-context parallel Standards
+and Spec reviews against the exact invocation base/head SHAs in an isolated
+checkout. Keep Standards and Spec reports separate and pass each reviewer the
+watcher's major-defects-only scope, repository guidance and relevant evidence.
+Delegation stays within the authorized model, permissions and cycle deadline.
+
+Follow `.automation/review-scope.md` for the scheduled-workflow adapter: pinned
+diff/commit commands, spec lookup, separate private reports and mapping to existing
+completion evidence and runner-delivered feedback. Record "no spec available"
+when requirements are absent; do not invent requirements or start interactive
+tracker setup. Missing specs alone do not block merging. The major-defects-only
+policy filters both axes; generic smell/convention checks create no new gates.
+This explicit companion uses normal skill discovery, not a manual catalog scan
+or per-cycle inventory. Actual skill/delegation failure is watcher work, not an
+author code defect; preserve coverage without claiming an unrun review passed.
+
 ### Major-code-issues-only review scope
 
 Follow `.automation/review-scope.md`, appended and hashed by all four runners.
@@ -299,6 +317,12 @@ New cycles use the changed digest; active cycles retain their loaded policy.
 - Document schedule, model, approved scope, deploy exceptions, logs/state paths, preflight/test commands, disable instructions, and host/network/credential requirements in the watcher README.
 
 ## Verification
+
+- Test that every watcher policy invokes `code-review`, every README documents it,
+  and each composed/hashed prompt includes the shared two-axis method, exact-SHA
+  comparison, missing-spec handling and major-defects-only precedence. Check this
+  skill's companion requirement when the workspace catalog is available. Use
+  mocked prompt composition, not live reviews or GitHub mutations.
 
 - Check all four policies/READMEs and shared prompt hashing include the major-code
   scope. Test nonblocking optional audio/toolchain notes, explicit not-applicable
