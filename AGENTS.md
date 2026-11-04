@@ -4,6 +4,9 @@ Skills use the OpenCode package format at `.agents/skills/<name>/SKILL.md`. Refe
 For frontend/UI work, read the shared `frontend-*` product and interaction skills first, then the platform-specific implementation adapter.
 For backend work, any external API call or long-running function must not block the request unless synchronous behavior is explicitly required. Persist local state first and run the external work in a background job.
 
+For large local checkouts, test environments, downloads, or temp/quota failures,
+follow `.automation/storage.md`. Use disk-backed scratch, not `/tmp/opencode`.
+
 ## Response style
 
 Use ASD-STE100-inspired plain English. Keep answers brief, clear, and direct. Use short sentences and familiar words. Include only essential details unless asked for more. Preserve important warnings and uncertainty.
