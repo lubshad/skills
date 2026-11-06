@@ -269,6 +269,21 @@ New cycles use the changed digest; active cycles retain their loaded policy.
 ### No-progress recovery
 
 - Recover early successful child exits with valid but incomplete review results
+### Release-state compatibility
+
+- Use shared `.automation/pr_watch_release_state.py` for runtime polling, release
+  cleanup/offload and preparation recovery. Support flat `pending_releases` lists
+  and repository maps containing single records, lists, or both. Preserve every
+  record, unknown field and historical outcome; infer repository identity only
+  from a consistent record or map key. Reads leave durable state unchanged;
+  authorized scoped writes retain its container shape and unrelated records.
+- Malformed records and conflicting identities fail closed as watcher state
+  errors, not author defects or empty/idle success. Test mixed shapes through all
+  four runners with mocked external actions, plus state preservation and bounded
+  recovery. Keep scheduled polling continuous using the existing cron and lock;
+  normal future ticks load repaired helpers. Preserve caches, retry limits and
+  failed-release safety rather than forcing a live cycle or clearing history.
+
   inside the same verified OpenCode session and original 45-minute deadline.
   Send concrete completion/continuity errors, retained exact-head evidence and next
   tasks back to the agent. Reverify session location/model before each prompt;
