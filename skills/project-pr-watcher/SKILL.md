@@ -55,27 +55,57 @@ Read `project-connections.md` first, then this skill, then applicable review and
 - Incomplete reviews are runner work, not code defects or author-actionable blockers. Preserve per-PR coverage/remaining-work checkpoints and immutable result history; continue independent source review while CI or dependencies gate merging/releasing. Resume unfinished historical reviews rather than reusing their deferrals as approval or completed-review evidence. Do not post/repeat author comments solely because the agent has not finished. Use the available cycle budget; an early voluntary stop is not a timeout.
 - Throttle incomplete-review continuations independently of active releases: the four reference runners allow three total result-producing responses per unchanged snapshot/policy/model/release-evidence digest, including immediate same-session follow-ups, with a 15-minute backoff between scheduled cycles. Active release monitoring also uses a 15-minute agent recheck delay; neither delay authorizes deployment retries. GitHub polling remains every five minutes and relevant evidence changes can trigger earlier handling. Pass attempt/limit/previous-result metadata into the next invocation. After exhaustion, keep `review_pending: true` and `review_exhausted: true`, retain evidence, and log operator attention required instead of claiming success or looping indefinitely. Relevant evidence/policy changes permit a new bounded sequence, but retain exact repository/PR/head/base checkpoints and next tasks; revalidate new policy requirements and never reuse different-head coverage or old approval. Comment timestamps must not reset the budget. Failed deployments remain non-retryable. Contract/policy digest changes re-evaluate legacy cached outcomes on the next eligible locked tick without deleting audit state or altering cron. Existing running cycles keep their loaded instructions and cached retry deadlines are not rewritten.
 - Use a bounded agent run (60 minutes by default) with process-group termination on timeout. Throttle unchanged active release monitoring retries (15 minutes for all four reference watchers); do not automatically redeploy failed releases.
+- Transport full policy/invocation/history outside process arguments. The shared
+  launcher uses OpenCode's supported `run --file` text attachment with a short
+  instruction. Allocate a fresh mode-0600 UTF-8 file in the private result
+  directory for each initial response, continuation or authorized fallback; keep
+  it until child/process-group shutdown and remove that exact file on normal,
+  error and timeout exits. Preserve the complete prompt and verified session/model,
+  lifecycle start ordering, deadline and budgets. `E2BIG` / `Argument list too long`
+  is a runner launch failure, not a code finding or reason to trim review history.
+  Repair the shared launcher for all four watchers; normal scheduled ticks load
+  it without cron restarts, cache deletion or manually starting live reviews.
 - Provide a read-only `--check-only` connectivity preflight that neither starts an agent nor comments, merges, deploys, or writes review state. Document credentials/toolchain prerequisites and how to disable only this cron entry; disabling cron does not stop an existing cycle.
 
 ## 3. Review PR-Introduced Changes
 
-### Required code-review companion
+### Workflow closure and late discoveries
 
-Invoke the `code-review` skill for each PR. Use fresh-context parallel Standards
-and Spec reviews against the exact invocation base/head SHAs in an isolated
-checkout. Keep Standards and Spec reports separate and pass each reviewer the
-watcher's major-defects-only scope, repository guidance and relevant evidence.
-Delegation stays within the authorized model, permissions and cycle deadline.
+All four watchers enforce `workflow_review` evidence for completed source reviews
+through `.automation/review-completion.md` and the shared evidence helper. Trace
+affected workflows from entry/permissions through guards, writes, jobs and consumers;
+map reviewed files to concrete path evidence rather than a diff filename inventory.
+Before resolving a fix, check the successful downstream path as well as the original
+failure. Classify code findings as initial, carried forward, previously missed,
+fix-introduced or newly evidenced using prior-head comparison. A previously missed
+finding requires a focused related-workflow recheck, not another author QA demand.
+Finish independent source review and report all confirmed major defects together;
+the three-bullet summary is not a finding quota. The runner appends full structured
+findings for larger completed sets. Partial publication stays explicitly incomplete.
+Follow the shared contract for exact fields, bounded continuations and compatibility.
+Structural checks cannot guarantee exhaustive review. Preserve historical records,
+major-only scope, model/schedule permissions and merge/deployment protections.
 
-Follow `.automation/review-scope.md` for the scheduled-workflow adapter: pinned
-diff/commit commands, spec lookup, separate private reports and mapping to existing
+### Single focused review
+
+The owner approved one focused reviewer per PR for all four installed watchers
+on 2026-11-04. No mandatory `code-review` invocation, parallel Standards/Spec
+agents or separate axis-report gate applies. The interactive skill is unchanged.
+Review exact invocation base/head SHAs in an isolated checkout using
+`.automation/review-scope.md` for pinned diff/commit commands, spec lookup,
 completion evidence and runner-delivered feedback. Record "no spec available"
-when requirements are absent; do not invent requirements or start interactive
-tracker setup. Missing specs alone do not block merging. The major-defects-only
-policy filters both axes; generic smell/convention checks create no new gates.
-This explicit companion uses normal skill discovery, not a manual catalog scan
-or per-cycle inventory. Actual skill/delegation failure is watcher work, not an
-author code defect; preserve coverage without claiming an unrun review passed.
+when requirements are absent; do not invent requirements or start tracker setup.
+Missing delegation or specs do not prevent an otherwise finished source review.
+
+Block only confirmed major defects and existing required merge gates. Style,
+smells, architecture preferences, minor bugs/edge cases, minor spec gaps and
+optional verification are nonblocking notes. Each code blocker needs current-head
+evidence, an affected user/data, a realistic failure path and material impact.
+Deployment-only prerequisites hold release, not an otherwise safe merge; concrete
+incompatible contracts still block merge. Preserve history and explicitly retire
+old method-only/noncritical demands under the shared policy, never as false fixes
+or test passes. Genuine major defects, required CI, exact-head merge protection
+and deployment safety remain unchanged. Relevant skills use normal discovery.
 
 ### Major-code-issues-only review scope
 
@@ -138,10 +168,10 @@ New cycles use the changed digest; active cycles retain their loaded policy.
 ### Public review lifecycle status
 
 - uSafe, Xealth, Sync Dating and LMS use shared `.automation/pr_watch_status.py`
-  and `.automation/review-status.md`. Their runner owns one public status comment
-  per repository/PR/head, created only after verified session/model selection and
+  and `.automation/review-status.md`. Their runner owns public status updates
+  per repository/PR/head, started only after verified session/model selection and
   actual child-process creation. Agents do not create or edit lifecycle comments.
-- Edit that same comment about every ten minutes with start/update UTC times and
+- Publish an update about every ten minutes with start/update UTC times and
   elapsed duration. Report process liveness only, not inferred stages, progress
   percentages, successful validation or an ETA. Keep the existing 60-minute agent
   deadline; finalization can take longer. No repeated author mentions or raw logs.
@@ -154,17 +184,23 @@ New cycles use the changed digest; active cycles retain their loaded policy.
   labels, short next actions, required validation states and a direct feedback
   link. Show pending delivery explicitly. Keep cumulative attempts private and
   public timestamps at minute-level UTC; never expose raw logs or local paths.
-- When an actually started new-head review has a status URL, link older owned
-  statuses forward as historical/superseded. Keep their original timing and
-  commit-specific finding comments. Do not replace an older head's marker.
+- A new-head review starts a new comment. Preserve earlier public comments and
+  their original timing/markers; retain forward links in private history only.
 - Status markers are distinct: `<!-- <project>-pr-watch-status:<PR>:<head-SHA> -->`.
-  This is the only exception to latest-comment edit ordering: the runner can edit
-  its authenticated-owner/exact-marker status comment after intervening replies.
-  Never overwrite developer comments, other watchers' comments or an older head.
+  All watcher updates follow latest-comment ordering, including lifecycle status:
+  fetch all discussion pages and sort by creation time then numeric ID. Edit only
+  the latest authenticated-owner/exact-project/PR/head status comment. Otherwise
+  post a new update after intervening author, bot, other-watcher or unmarked
+  shared-account discussion. Preserve earlier comments; unchanged updates are a
+  no-op and publication timestamps alone are not a content change. This includes
+  superseded, incomplete/exhausted, interrupted and recovery updates.
 - Keep private `review-status.json` separate from agent-owned review/release state;
   persist comment/creation intent, process boot/PID/start identity and attempt history.
-  Reconcile ambiguous POSTs without duplicates. Locked startup may repair an old
-  existing lifecycle comment but must never create a start comment; a live or uninspectable orphan child
+  Reconcile ambiguous POSTs by exact retained content digest and pre-POST IDs,
+  not the head marker alone: multiple same-head status comments are valid.
+  Preserve unresolved intents across restarts. Locked startup may recover an
+  already-started lifecycle under the same ordering rule, including a replacement
+  after intervening replies, but must never invent a missing start comment; a live or uninspectable orphan child
   prevents overlapping agents. Lost completion evidence means interrupted, not success.
 - Preflight, cached/idle polls, contention skips and model/session verification
   failures never create start comments. GitHub status failures must remain visible
@@ -250,7 +286,7 @@ New cycles use the changed digest; active cycles retain their loaded policy.
 - After merges and during pending-release reconciliation, sweep every approved project repo's pending releases, including closed/merged PRs. Surface failed/blocked releases and unblock dependents only with verified evidence. Unrelated failures do not hold independent PRs; do not deploy an untracked companion on another repo's behalf.
 - Inspect existing deploy scripts and apply `github-actions-deployment.md` plus the matching `frappe-deployment.md`, `flutter-deploy.md`, `flutter-web-deployment.md`, `flutter-android-release.md`, `flutter-ios-release.md`, `nextjs-deployment.md`, or `pipecat-self-hosting.md` as applicable.
 - After confirmed merge, prepare an independent private standalone release clone directly from the verified allowlisted remote, under `~/.local/share/<project>-pr-watch/checkouts/release-clones/` (invocation `release_directory`). Allocate through `.automation/pr_watch_storage.py` per `.automation/release-checkouts.md` for disk/byte/inode/quota admission and durable ownership. Do not use shared refs, alternates, `--shared`, `--reference`, or copy developer Git config/env/credentials. Persist clone path/ownership, repository/remote identity and expected base/tip in durable state before promotion. The workspace session remains at the canonical workspace; only release commands run in the clone.
-- Fetch and `git pull --ff-only` the expected base branch ONLY in that release clone. Verify exact approved tip, confirmed merge ancestry, intervening commits and fresh remote evidence before promotion. Never pull, switch, reset, stash, commit or update local branches in primary/developer checkouts to prepare a release. Their branch, dirty files, local divergence or base branch held in another worktree are not release blockers. Dirty release clones, incorrect identity, divergence, missing prerequisites or unreviewed newer commits remain blockers; preserve rather than repair unsafe artifacts. Scripts requiring a literal `main` branch can use it in the independent clone without acquiring the developer's branch.
+- Fetch the expected base once ONLY in that release clone, then locally fast-forward to the verified fetched SHA through `run_preparation_git(['merge', '--ff-only', verified_sha], ...)`. Avoid another network fetch through pull. Verify exact approved tip, confirmed merge ancestry, intervening commits and fresh remote evidence before promotion. Never pull, switch, reset, stash, commit or update local branches in primary/developer checkouts to prepare a release. Their branch, dirty files, local divergence or base branch held in another worktree are not release blockers. Dirty release clones, incorrect identity, divergence, missing prerequisites or unreviewed newer commits remain blockers; preserve rather than repair unsafe artifacts. Scripts requiring a literal `main` branch can use it in the independent clone without acquiring the developer's branch.
 - Revalidate historical primary-branch-only pre-promotion deferrals under the isolated-checkout policy, reconciling state/GitHub first. Do not repeat merges, promotions or version bumps already performed, or automatically retry failed deployments. Keep repository allowlists, models, merge protection and authorized environments unchanged.
 - For projects following the reference convention, run only plain `./deploy` with no arguments. Verify it really targets the authorized development/internal environment; never assume plain deploy is safe. Other conventions require an explicitly approved manifest command. Let existing scripts own version bumps and release commits; do not rewrite them as part of a review cycle.
 - Batch eligible merges to one promotion per repo per cycle when supported, without including newer unreviewed changes. Capture relevant release/backup/production refs before promotion and check required backup prerequisites. Migration preflight applies when the PR changes migrations or affected data paths, not as an unrelated whole-site audit.
@@ -258,7 +294,7 @@ New cycles use the changed digest; active cycles retain their loaded policy.
 - Once the local deploy command has exited and promotion/recovery evidence is persisted, detach the clean release worktree at the same HEAD before monitoring remote workflows; remote monitoring does not require holding a named branch. Preserve and report unsafe cleanup rather than discarding changes. Recovery must reconcile saved state/GitHub truth without repeating promotion; detaching must not update branch refs or delete release commits.
 - Keep standalone release clones outside direct-child review-worktree cleanup. The owner selected disposal after verified deployment on 2026-11-04: follow `.automation/release-clone-cleanup.md`, persist its exact-SHA workflow/health/ref and physical clone-HEAD proof, and let the locked runner own disposal after agent exit. Pending/failed/dirty/active/uncertain clones remain for recovery; logs and history remain intact. No agent recursive deletion, global pruning or unattended sudo. Linux inspection failures defer cleanup. Verify ownership, independent Git storage, remote, clean state and HEAD before any reuse. Legacy shared release worktrees remain outside disposal scope.
 - On interruption, resume monitoring rather than rerunning deploy and bumping versions again. On failure, persist evidence, notify the author with a workflow link, and keep dependents blocked. Do not loop retries, initiate manual rollbacks/restarts, or provision missing infrastructure without separate authorization; preserve existing workflow-managed recovery.
-- Release preparation is separate from deployment. All four installed watchers use `pr_watch_release_preparation.run_preparation_git` for clone/fetch/pull with a 300-second per-command deadline, streamed private logs and process-group timeout cleanup. Set the enclosing shell tool timeout to at least 330000 ms and reserve verification/cleanup time inside the unchanged 60-minute agent deadline. Run commands separately, not a 120-second shell chain. Follow the invocation-hashed `.automation/release-checkouts.md` contract.
+- Release preparation is separate from deployment. All four installed watchers use `pr_watch_release_preparation.run_preparation_git` for clone/fetch/local fast-forward with a 300-second per-command deadline, bounded noninteractive SSH, streamed private logs and process-group timeout cleanup. Set the enclosing shell tool timeout to at least 330000 ms and reserve verification/cleanup time inside the unchanged 60-minute agent deadline. Run commands separately, not a 120-second shell chain. Follow the invocation-hashed `.automation/release-checkouts.md` contract for SSH settings, private elapsed-time/process-name diagnostics and durable 15-minute recovery spacing. A timeout or SSH child alone is not proof of transport failure; unknown/local/auth failures require diagnosis. New recoverable records set `next_attempt_at`; `claim_preparation_recovery` enforces that delay and preserves the two-attempt limit. Use a later scheduled cycle instead of sleeping or bypassing the timestamp. Existing exhausted releases still need operator authorization.
 - A proven Git transport timeout before any promotion/deploy starts permits at most two recovery attempts per confirmed watcher-owned release, persistently counted before work by `claim_preparation_recovery`. Reconcile remote refs, exact-SHA workflows, intent and command logs first; legacy prose-only blockers need fresh no-promotion evidence. Preserve incomplete/dirty clones and allocate a recorded new independent clone rather than reset/clean. Authentication failures, uncertain or failed deployments, changed/unreviewed tips and missing prerequisites remain blockers. Counts survive cycles/policy changes/new clones; exhausted recovery needs operator attention. Never retry `./deploy` or repeat promotion under this preparation exception. New eligible cycles reconsider preparation-only deferrals without deleting history, starting manual releases or changing model/cron/authority.
 - Reconcile manual recovery under `.automation/manual-release-recovery.md`: verify exact-SHA approved development workflow, migration and health, preserve the original failed attempt, atomically record external resolution and resolve matching review dependencies. Recheck dependent PR gates; never redeploy to clear stale state or clear unrelated code blockers. A workflow discovered by SHA is evidence to validate, not automatic approval.
 - For new authorized promotions, use `.automation/pr_watch_release_command.py` to stream stdout/stderr continuously into a new private log. The enclosing shell deadline must exceed the helper deadline plus cleanup allowance and fit inside the remaining agent deadline. Persist a not-attempted deferral if time is insufficient. Timeouts retain diagnostics and require remote reconciliation; they never authorize retry.
@@ -266,9 +302,6 @@ New cycles use the changed digest; active cycles retain their loaded policy.
 
 ## 6. Durable State and Operations
 
-### No-progress recovery
-
-- Recover early successful child exits with valid but incomplete review results
 ### Release-state compatibility
 
 - Use shared `.automation/pr_watch_release_state.py` for runtime polling, release
@@ -284,6 +317,22 @@ New cycles use the changed digest; active cycles retain their loaded policy.
   normal future ticks load repaired helpers. Preserve caches, retry limits and
   failed-release safety rather than forcing a live cycle or clearing history.
 
+### No-progress recovery
+
+- Use the ordered exact-head/base checklist in `.automation/review-completion.md`:
+  each remaining task names concrete paths and a review question. Finish a task,
+  save cumulative evidence, and execute the next task in the same response.
+  Checkpoints and the final attempt number are not stopping conditions. End when
+  source review is complete, all remaining source work has demonstrated access
+  blockers, or deadline shutdown is needed; optional test gaps stay nonblocking.
+- Preserve runner-owned `review_exit` timing and unfinished tasks. A successful
+  incomplete exit with over two minutes left is `premature_review_exit`, not a
+  timeout or an author defect. Feed it into bounded continuations and public status
+  without changing retry limits. Exact-head partial fix observations may change
+  display wording only under `.automation/review-status.md`; historical findings
+  stay open until completed-review continuity validation accepts their resolution.
+
+- Recover early successful child exits with valid but incomplete review results
   inside the same verified OpenCode session and original 60-minute deadline.
   Send concrete completion/continuity errors, retained exact-head evidence and next
   tasks back to the agent. Reverify session location/model before each prompt;
@@ -318,7 +367,8 @@ New cycles use the changed digest; active cycles retain their loaded policy.
   toolchain deferrals, including a real failed/unavailable attempt. Successful
   DB login plus unattempted test setup is not evidence that setup is unavailable.
   Exact-SHA CI reuse may be recorded instead of rerunning equivalent validation.
-- Refine only the already-created lifecycle comment after caching: distinguish
+- Publish an update for the already-started lifecycle after caching under the
+  latest-comment rule: distinguish
   unfinished watcher work, no progress, and exhausted operator attention without
   publishing raw commands/logs or implying an unidentified author defect.
   Configuration work must never post retrospective comments or start live reviews.
@@ -333,11 +383,19 @@ New cycles use the changed digest; active cycles retain their loaded policy.
 
 ## Verification
 
-- Test that every watcher policy invokes `code-review`, every README documents it,
-  and each composed/hashed prompt includes the shared two-axis method, exact-SHA
-  comparison, missing-spec handling and major-defects-only precedence. Check this
-  skill's companion requirement when the workspace catalog is available. Use
-  mocked prompt composition, not live reviews or GitHub mutations.
+- Run `test_pr_watch_prompt_transport.py` with a real offline stand-in child and
+  an oversized Unicode prompt: verify byte-for-byte attachment delivery, private
+  permissions, bounded argv and exact-file cleanup. Mock launch failure, timeout,
+  heartbeat/status ordering, same-session continuation and optional fallback.
+  Confirm all four runners use the shared launcher. These tests submit no live
+  review prompt and grant no merge, deployment or model-change authority.
+
+- Test that every watcher policy and README specifies one focused reviewer without
+  a mandatory `code-review` or parallel-axis gate. Each composed/hashed prompt must
+  include exact-SHA comparison, missing-spec handling, major-defect evidence,
+  nonblocking minor/optional notes and separate merge/release prerequisites. Check
+  this skill's matching policy when the workspace catalog is available. Use mocked
+  prompt composition, not live reviews or GitHub mutations.
 
 - Check all four policies/READMEs and shared prompt hashing include the major-code
   scope. Test nonblocking optional audio/toolchain notes, explicit not-applicable
@@ -376,11 +434,11 @@ New cycles use the changed digest; active cycles retain their loaded policy.
   checks, new-head feedback, unchanged same-head no-ops, changed revisions and
   substantive reply deduplication. Cover discussion/head/base races, ownership,
   ambiguous POSTs, restart recovery without another agent/deploy, corrupt state,
-  historical forward links and all four runner integrations. Do not post live
+  preserved public history/private forward links and all four runner integrations. Do not post live
   comments or start reviews merely to test/configure this behavior.
 
 - Test public lifecycle status using mocked GitHub/processes: real-spawn-only
-  start, ten-minute throttled in-place updates, validated final verdicts, missing
+  start, ten-minute throttled latest-comment updates, validated final verdicts, missing
   or malformed results, timeout/error/crash recovery, matching live orphan/reused
   PID/uncertain liveness, changed head/base, ownership/marker mismatch, ambiguous
   POST deduplication, same-head continuation/history and intervening author replies.

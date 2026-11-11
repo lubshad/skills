@@ -1,6 +1,6 @@
 ---
 name: frontend-forms
-description: Use when designing or reviewing form UX, validation, field behavior, selection components, save states, or dummy-data linkage.
+description: Use when designing or reviewing form UX, form button styling, validation, field behavior, selection components, save states, or dummy-data linkage.
 ---
 
 Common form rules that apply to all frontend platforms. Platform-specific form skills add implementation syntax on top.
@@ -17,6 +17,7 @@ Apply to every create/edit form, onboarding flow, profile form, filter form with
 
 ## Companion Skills
 
+- Visual form or button changes: read `frontend-design-consistency.md` first to preserve the surrounding UI.
 - Required: `frontend-ui-states.md` for remote loading or save failures.
 - Destructive or modal flows: `frontend-interaction-patterns.md`.
 - Flutter implementation: `flutter-forms.md`; Next.js implementation: `nextjs-forms.md`.
@@ -29,6 +30,16 @@ Apply to every create/edit form, onboarding flow, profile form, filter form with
 - On mobile, complex form surfaces should use fullscreen flows or sheets with sticky header and sticky bottom actions.
 - On desktop/tablet-wide layouts, use structured 2-3 column layouts where space permits and readability is preserved.
 - Use platform/product standard modal and dialog patterns; do not create feature-specific modal styling for ordinary forms.
+
+## Form Button Consistency
+
+- Match buttons to nearby inputs, selectors, tables, and toolbars in height, typography, spacing, borders, radii, and icon size. Compact buttons must belong to the existing UI, not form a separate visual style.
+- Reuse shared button components, compact variants, and design tokens. If a needed variant is missing, extend the shared component or style rather than repeat feature-local overrides.
+- Prefer compact secondary actions inside forms and table rows. For desktop admin forms, use 32px form buttons and 28px row actions as starting points, with 12px text, 14px icons, and tight horizontal padding. Follow established screen density and readable labels rather than forcing these sizes across all products.
+- Use neutral borders for secondary actions where consistent with the app. Preserve the existing primary and destructive action hierarchy, colors, and meaning.
+- Preserve clear keyboard focus, disabled and pending states, and accessible names. Use larger touch targets on touch devices; compact visual size must not reduce touch usability.
+- Keep the change local to the requested form controls. Preserve unrelated layout, fields, navigation, and other UI parts; broader changes require explicit approval.
+- Apply this standard when creating or updating form button presentation. It does not authorize an app-wide restyle or unrelated changes during copy-only or nonvisual work.
 
 ## Selection Components
 
@@ -90,6 +101,7 @@ Set autocomplete/autofill hints where supported.
 
 ## Verification
 
+- Compare changed buttons within the full form against adjacent controls and a maintained comparable screen. Check labels, icons, alignment, action hierarchy, keyboard focus, and touch usability at relevant widths; report any unverified visual or interaction checks.
 - Verify required and format validation, including keyboard-only submission.
 - Verify a pending save prevents duplicate submission and exposes one clear success or failure outcome.
 - Verify server validation errors remain attached to the affected fields where possible.

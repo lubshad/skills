@@ -16,6 +16,7 @@ Reference map for all apps, sites, and their connections in this bench.
 | `sites/sync-dating.localhost` | Sync Dating Frappe app site |
 | `sites/usafe-safety.localhost` | Usafe Safety Frappe app site |
 | `sites/xealth.localhost` | Xealth Frappe app site |
+| `sites/ecommerce.localhost` | ERPNext and Webshop backend for the Local-themed Next.js storefront |
 
 ## Local Frontend Networking Standard
 
@@ -32,6 +33,8 @@ Reference map for all apps, sites, and their connections in this bench.
 | Masar web | `http://masar.localhost:3000` | `./run_masar_next.sh` |
 | Sync Dating concept 1 | `http://sync-dating.localhost:3001` | Run `npm run dev` in `next_apps/sync-dating/concept-1/` |
 | Sync Dating admin | `http://sync-dating.localhost:3006` | Run `npm run dev` in `next_apps/sync-dating/admin/` |
+| Sync public web | `http://sync-dating.localhost:3008` | Run `npm run dev` in `next_apps/sync-dating/web/` |
+| Ecommerce storefront | `http://ecommerce.localhost:3009` | Run `npm run dev` in `next_apps/ecommerce/` |
 | Usafe Safety admin | `http://usafe-safety.localhost:3004` | Run `./run.sh` in `react_apps/usafe_admin/` |
 | Usafe Safety super admin | `http://usafe-safety.localhost:3007` | Run `./run.sh` in `react_apps/usafe_super_admin/` |
 | Omor admin | `http://omor.localhost:3005` | Run Flutter web with `--web-hostname omor.localhost --web-port 3005` |
@@ -186,6 +189,8 @@ Both Flutter applications support an `API_BASE_URL` override. Read backend URLs 
 | Mobile app | `flutter_apps/syncapp/` | Android/iOS Flutter app (`com.sync.syncapp`) with a dedicated `features/calling/` Agora RTC module |
 | Web frontend | `next_apps/sync-dating/` | Next.js frontend directory containing Concept 1 and admin |
 | Admin frontend | `next_apps/sync-dating/admin/` | Separate admin UI at `http://sync-dating.localhost:3006` |
+| Public website | `next_apps/sync-dating/web/` | One-page Next.js landing, shared Firebase Google login/account creation, and Razorpay recharge at `http://sync-dating.localhost:3008` |
+| Public web repository | `https://github.com/lubshad/sync-web` | Private repository; local `origin` uses `git@github.com:lubshad/sync-web.git`, default branch `main` |
 | Admin host (dev) | `https://sync-admin.coreaxissolutions.in` | Existing **development** preview, not production; SSH `next@sync-concept-1.coreaxissolutions.in`, directory `$HOME/sync-admin/release`, PM2 `sync-admin`, loopback port `3102` |
 | Admin deploy (dev) | `next_apps/sync-dating/admin/.github/workflows/deploy-development.yml` | `./deploy` promotes to `development` with `development-backup`; credentials are `SYNC_ADMIN_DEV_*` inside the `development` environment |
 | Admin deploy (prod) | `next_apps/sync-dating/admin/.github/workflows/deploy-production.yml` | `./deploy --prod` promotes to `production`; **no production target is provisioned** and its `SYNC_ADMIN_*` environment credentials remain unconfigured |
@@ -206,10 +211,20 @@ Both Flutter applications support an `API_BASE_URL` override. Read backend URLs 
 
 ### Sync Local Frontend
 
+#### Sync Firebase Authentication
+
+- Firebase project: `sync-f4c5c` (project number `324274169006`), shared by the mobile app, backend token verification, and public website. Scope Firebase tools to this project; the tool's active project can belong to another product.
+- Public web Firebase app: `Sync Website`, app ID `1:324274169006:web:3717e92976b7f976c1b93f`; auth domain `sync-f4c5c.firebaseapp.com`.
+- The public site's local web SDK configuration is in ignored `next_apps/sync-dating/web/.env.local`. Google sign-in is enabled and `sync-dating.localhost` is an authorized Firebase Auth domain. Configure hosted origins separately when hosting is provisioned.
+- Website Google login uses `flutter_utils.api.auth.firebase_token_login`, including its configured account-creation and reactivation behavior. No website-specific backend auth endpoint is required. The public website mirrors mobile role/language selection, six member profile steps, and the 13-step listener application with phone OTP and private verification uploads, using the existing Sync APIs. Completed members can recharge; listeners see application/briefing status.
+
+#### Local URLs
+
 - Run each Next.js development server with hostname `sync-dating.localhost`, not `localhost` or `127.0.0.1`, so future Frappe CORS, session cookies, and Socket.IO share the site hostname.
 - `sync-backend.coreaxissolutions.in` is the development target, not production. When a production host is provisioned, keep `FRAPPE_DEV_*` on this host and repoint `FRAPPE_*` inside the `production` environment; never let a production workflow fall back to the development host.
 - Concept 1 is the only Sync concept in use; reserve port `3001` for it.
 - Reserve port `3006` for the separate Sync Dating admin UI.
+- Reserve port `3008` for the public Sync website. Its BFF calls the existing shared Firebase login and Sync account/finance APIs, keeping upstream credentials server-controlled.
 - The existing hosted admin URL `sync-admin.coreaxissolutions.in` is development; do not add a `-dev` hostname or a second server instance for this setup. Its previous `production` deployment label was historical, not a production-host designation. Keep future production credentials separate, with no fallback to this development server.
 
 ## Zeronic Project
@@ -221,8 +236,17 @@ Both Flutter applications support an `API_BASE_URL` override. Read backend URLs 
 | Frappe site | `sites/zeronic.localhost` | Local Zeronic target site |
 | API base URL (dev) | `http://zeronic.localhost:8000` | Set via `VITE_API_BASE_URL` in the React app's `.env.development` |
 | Web frontend URL (dev) | `http://zeronic.localhost:8080` | Run with `npm run dev`; matches the Frappe hostname for CORS, session cookies, and Socket.IO |
-| Backend host (prod) | `zeronic.coreaxissolutions.in` | Production Frappe host and site |
-| Backend deploy | `apps/zeronic/.github/workflows/deploy-production.yml` | GitHub Actions deploys pushes promoted by `apps/zeronic/deploy` to the `production` branch |
+| Backend host (dev) | `zeronic.coreaxissolutions.in` | Existing hosted development Frappe host/site; SSH user `frappe`, Bench `/home/frappe/frappe-bench` |
+| Web host (dev) | `https://zeronic.app` | Existing hosted development React app; SSH user `dockeruser`, port `22`, directory `/var/www/zeronic` |
+| Backend deploy (dev) | `apps/zeronic/.github/workflows/deploy-development.yml` | `./deploy` promotes to `development` with `development-backup`; settings belong in the GitHub `development` environment |
+| Web deploy (dev) | `react_apps/zeronic/.github/workflows/deploy-development.yml` | Same branch contract; build configuration comes from the GitHub `development` environment |
+
+Zeronic currently has **development hosting only**. Earlier workflow/hostname
+descriptions used production labels for these same targets; they do not establish
+a production environment. Both helpers are development-only, reject `--prod`, and
+leave server actions to GitHub Actions. `goproduction` is disabled. Environment
+credential migration and initial branch promotion require separate operator action;
+local workflow files do not prove GitHub configuration or a live release is ready.
 
 ## Usafe Safety Project
 
@@ -237,6 +261,15 @@ Both Flutter applications support an `API_BASE_URL` override. Read backend URLs 
 | Super admin frontend URL (dev) | `http://usafe-safety.localhost:3007` | Run `./run.sh` in `react_apps/usafe_super_admin/`; required URL for local runs, tests, and Playwright |
 
 ## Environment Config
+
+### Ecommerce Storefront
+
+- Frontend: `next_apps/ecommerce/`; backend site: `sites/ecommerce.localhost/`.
+- Backend URL: `http://ecommerce.localhost:8000`, configured with server-only `FRAPPE_URL`.
+- Public catalog and authenticated shopping-cart operations use the installed Webshop APIs. Runtime session encryption uses private `SESSION_KEY`; browser mutations must match `APP_ORIGIN`.
+- Backend extension: `apps/ecommerce_store/`, installed on `ecommerce.localhost` only. Public catalog/detail APIs expose published imported records. Authenticated adapters in `api/checkout.py` use native Webshop carts and quotation requests, with customer-owned addresses and idempotency receipts. Legacy Webshop RPC routes are guarded against ownership or quotation-mode bypass.
+- The reference catalog contains non-stock demo items with USD prices in `Local Reference USD`. Source availability is a snapshot, not local inventory. Original `WS-DEMO-*` records are preserved and excluded from the custom storefront catalog.
+- `/checkout` is a **quotation-request flow**, enabled by the app-owned `Storefront Checkout Settings` single. Webshop's paid checkout stays disabled; there is no payment gateway, automatic Sales Order or payment collection. ERPNext supplies totals and configured tax/delivery calculations. An administrator command (`ecommerce_store.checkout_setup.prepare`) refreshes the required local USD→INR exchange rate in a background job and exposes durable status in that single.
 
 - Development env files: `.env.development` (Next.js), app config files (Flutter)
 - Production env files: `.env.production` (Next.js), separate target files (Flutter)

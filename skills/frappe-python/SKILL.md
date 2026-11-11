@@ -25,6 +25,13 @@ Follow these Python rules strictly when working on Frappe apps.
 
 ## Frappe Conventions
 
+### Desk-Managed Application Settings
+
+- Configure application features, business rules, provider credentials, and rollout switches through permission-controlled Settings DocTypes in Frappe Desk. Reuse the app's existing Settings DocType where suitable.
+- Treat Desk settings as the source of truth. Do not add duplicate or hidden application gates in `site_config.json`, `common_site_config.json`, or `frappe.conf`.
+- Store provider secrets in Password fields and enforce server-side permissions for settings changes. Keep secrets out of client responses and logs.
+- Keep infrastructure settings required by Frappe, such as database and Redis connections and encryption keys, in their supported site/Bench configuration. This rule does not move infrastructure secrets into Desk or authorize deleting existing configuration.
+
 ### Whitelisted Methods
 - Decorate public API methods with `@frappe.whitelist()`.
 - Use `allow_guest=True` only for endpoints that genuinely need unauthenticated access.
@@ -61,7 +68,19 @@ Follow these Python rules strictly when working on Frappe apps.
 
 ## Verification
 
-- When local test-site creation is authorized, prefer a new uniquely named site in the existing Bench using local MariaDB rather than requiring a private database daemon. Follow `.automation/local-bench-testing.md` for watcher jobs. A site isolates data, not shared app code or services: verify actual imported code/dependency SHAs and local modifications, protect existing sites, mock outbound effects, disable scheduling for the new site, and record ownership/evidence privately. Never switch or patch shared apps to test a PR. Use a separate exact-code test Bench with the same local MariaDB if revisions differ; fresh head installation does not prove baseline-to-head migration. Where disposal is authorized (as for the four installed watchers), automatically clean up proven-owned test site/database/user/files on success or failure, preserve logs and verify absence. Bench drop-site archives files: remove the owned archive too, never force-drop unknown resources. Record interrupted cleanup for scoped reconciliation. This testing guidance alone grants no unrelated site creation/deletion or infrastructure permission.
+### Choose the smallest safe test environment
+
+- **Default: a temporary site in the existing Bench**, using local MariaDB and a dedicated disposable database/user, when site creation is authorized. Follow `.automation/local-bench-testing.md` for watcher jobs. Use existing scoped approval rather than asking again for the same operation; watcher approval does not extend to unrelated interactive tasks.
+- Before choosing an environment, verify actual imported app/dependency paths and SHAs, relevant local modifications, installation hooks, patches and external effects. A site isolates data, not app code, the Python environment, Redis, workers or the filesystem. A worktree working directory alone does not select Frappe imports.
+- **Use a separate temporary Bench only for a concrete isolation need:** different code/dependency revisions, baseline-to-head migration testing, or effects that cannot safely use the shared environment. Record that reason before proposing or requesting a new Bench. Never switch, patch or relink shared apps, install shared dependencies, or restart shared services to make tests fit. A fresh head installation is not baseline-to-head migration evidence.
+- A separate Bench can still use existing local MariaDB with its own disposable database/user; a private database daemon is not the default. Use disk-backed scratch per `.automation/storage.md`. Private Redis/processes require the applicable approval when shared-service safety cannot be established.
+- For authorized exclusive creation of a verified absent private Bench directory, unrelated protected processes do not establish ownership of that directory. Check the target and its parents, preserve existing/interrupted resources, and keep strict identity/process checks for resources actually involved in the run. Ambiguous ownership of an involved resource remains a blocker.
+- Protect existing sites, mock outbound effects, disable scheduling/email for the new site, avoid shared-worker jobs, and record ownership/evidence privately. This guidance grants no unrelated site creation/deletion or infrastructure permission.
+- Where disposal is authorized (as for the four installed watchers), automatically clean up proven-owned test site/database/user/files on success or failure, preserve logs and verify absence. Bench drop-site archives files: remove the owned archive too, never force-drop unknown resources. Record interrupted cleanup for scoped reconciliation.
+
+### Check changed behavior
+
+- For application-setting changes, verify that the Desk setting controls the behavior without a site-config opt-in, that disabling it blocks the feature, and that unauthorized users cannot change it.
 - Run the focused test or create one for each changed whitelisted method, including permission-denied and invalid-input paths.
 - Verify writes roll back together when validation fails before the request completes.
 - Verify list and child-record access use bounded, batched queries.
