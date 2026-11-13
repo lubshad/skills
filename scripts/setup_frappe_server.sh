@@ -15,7 +15,6 @@ BENCH_USER="frappe"
 BENCH_DIR="/home/frappe/frappe-bench"
 FRAPPE_VERSION="16"
 FRAPPE_BRANCH=""
-DEFAULT_APP_BRANCH="version-16"
 PYTHON_VERSION="3.14"
 NODE_VERSION="24"
 SWAP_FILE="/swapfile"
@@ -29,9 +28,6 @@ SETUP_SWAP=1
 CONFIGURE_MARIADB=1
 SETUP_SSL=0
 SSL_EMAIL=""
-APPS=()
-APP_BRANCHES=()
-INSTALL_APPS=()
 APT_PACKAGES="build-essential certbot curl git cron libfontconfig1 libffi-dev libjpeg-dev liblcms2-dev libldap2-dev libmariadb-dev libpq-dev libsasl2-dev libssl-dev mariadb-client mariadb-server nginx pkg-config redis-server sudo supervisor tzdata util-linux xvfb zlib1g-dev python3-certbot-nginx"
 
 usage() {
@@ -67,16 +63,16 @@ Options:
   --swap-size-gb SIZE               Remote swap size in GB (default: 4)
   --skip-swap                       Skip remote swap file setup
   --skip-mariadb-config             Skip MariaDB service/root-password setup
-  --app REPO                        bench get-app repository; repeatable (default branch: version-16)
-  --app-branch BRANCH               Override branch for the immediately preceding --app
-  --install-app APP                 App name to install on site; repeatable
   --skip-production                 Skip Bench production setup
   --skip-scheduler                  Skip bench enable-scheduler
   -h, --help                        Show this help
 
 Examples:
   setup_frappe_server.sh --site example.com --frappe-version 16 --ssl-email admin@example.com --admin-password x --mariadb-root-password y
-  setup_frappe_server.sh --execute --host 203.0.113.10 --site example.com --admin-password x --mariadb-root-password y --app https://github.com/frappe/erpnext --app-branch version-16 --install-app erpnext
+
+After provisioning, add or update extra apps separately with:
+  .agents/scripts/setup_frappe_supporting_apps.sh --host SERVER --app flutter_utils
+That script also supports public Git apps and optional site installation.
 USAGE
 }
 
@@ -576,20 +572,6 @@ while [[ $# -gt 0 ]]; do
       CONFIGURE_MARIADB=0
       shift
       ;;
-    --app)
-      APPS+=("${2:-}")
-      APP_BRANCHES+=("$DEFAULT_APP_BRANCH")
-      shift 2
-      ;;
-    --app-branch)
-      [[ "${#APPS[@]}" -gt 0 ]] || fail "--app-branch must follow --app"
-      APP_BRANCHES[$(( ${#APP_BRANCHES[@]} - 1 ))]="${2:-}"
-      shift 2
-      ;;
-    --install-app)
-      INSTALL_APPS+=("${2:-}")
-      shift 2
-      ;;
     --skip-production)
       INSTALL_PRODUCTION=0
       shift
@@ -664,17 +646,6 @@ remote_as_bench_user_privileged "for collection in community.general ansible.pos
 remote_as_bench_user "$(bench_user_env "if [ ! -d $(quote "$BENCH_DIR") ]; then bench init --frappe-branch $(quote "$FRAPPE_BRANCH") --python $(quote "$PYTHON_VERSION") $(quote "$BENCH_DIR"); elif [ -d $(quote "$BENCH_DIR/apps/frappe") ] && [ -x $(quote "$BENCH_DIR/env/bin/python") ]; then if [ ! -f $(quote "$BENCH_DIR/sites/apps.txt") ] || ! $(quote "$BENCH_DIR/env/bin/python") -c 'import frappe' >/dev/null 2>&1; then printf 'Repairing the partial Frappe environment.\\n'; cd $(quote "$BENCH_DIR"); if [ ! -f sites/apps.txt ]; then printf 'frappe\\n' > sites/apps.txt; fi; uv pip install --quiet -e apps/frappe --python env/bin/python; else printf 'Bench directory exists: %s\\n' $(quote "$BENCH_DIR"); fi; else printf 'Partial bench directory at %s cannot be repaired automatically.\\n' $(quote "$BENCH_DIR") >&2; exit 1; fi")"
 remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); if [ ! -d apps/frappe/node_modules ]; then bench setup requirements; fi; if [ ! -f sites/assets/assets.json ]; then bench build; fi")"
 
-for app_index in "${!APPS[@]}"; do
-  app="${APPS[$app_index]}"
-  app_branch="${APP_BRANCHES[$app_index]}"
-  app_name="$(basename "$app" .git)"
-  if [[ -n "$app_branch" ]]; then
-    remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); if [ -d apps/$(quote "$app_name") ]; then printf 'App %s already exists; skipping get-app.\\n' $(quote "$app_name"); else bench get-app --branch $(quote "$app_branch") $(quote "$app"); fi")"
-  else
-    remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); if [ -d apps/$(quote "$app_name") ]; then printf 'App %s already exists; skipping get-app.\\n' $(quote "$app_name"); else bench get-app $(quote "$app"); fi")"
-  fi
-done
-
 remote_as_bench_user "if [ ! -d $(quote "$BENCH_DIR/sites/$SITE_NAME") ]; then $(bench_user_env "cd $(quote "$BENCH_DIR"); bench new-site $(quote "$SITE_NAME") --admin-password $(quote "$ADMIN_PASSWORD") --mariadb-root-password $(quote "$MARIADB_ROOT_PASSWORD")"); else printf 'Site directory exists: %s/sites/%s\n' $(quote "$BENCH_DIR") $(quote "$SITE_NAME"); fi"
 
 if [[ "$INSTALL_PRODUCTION" -eq 1 ]]; then
@@ -685,10 +656,6 @@ if [[ "$INSTALL_PRODUCTION" -eq 1 ]]; then
   remote_as_bench_user_privileged "$(supervisor_reload_command)"
   remote_as_bench_user_privileged "$(nginx_reload_command)"
 fi
-
-for app_name in "${INSTALL_APPS[@]+"${INSTALL_APPS[@]}"}"; do
-  remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); if bench --site $(quote "$SITE_NAME") list-apps | awk '{print \$1}' | grep -Fxq $(quote "$app_name"); then printf 'App %s already installed on site; skipping install-app.\\n' $(quote "$app_name"); else bench --site $(quote "$SITE_NAME") install-app $(quote "$app_name"); fi")"
-done
 
 remote_as_bench_user "$(bench_user_env "$(migrate_command)")"
 

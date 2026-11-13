@@ -11,6 +11,31 @@ SCRIPT = Path(__file__).with_name("setup_frappe_server.sh")
 SCRATCH = Path.home() / ".local/share/opencode/disk-tmp/opencode"
 
 
+class ProvisioningOnlyTest(unittest.TestCase):
+    def test_removed_app_options_are_rejected_without_ssh(self):
+        for option in ("--app", "--app-branch", "--install-app"):
+            with self.subTest(option=option):
+                result = subprocess.run(
+                    ["bash", str(SCRIPT), option, "unused"],
+                    capture_output=True, text=True,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(f"unknown argument: {option}", result.stderr)
+                self.assertNotIn("Phase 1", result.stdout)
+
+    def test_help_points_to_separate_app_script(self):
+        result = subprocess.run(
+            ["bash", str(SCRIPT), "--help"],
+            capture_output=True, text=True, check=True,
+        )
+        self.assertIn("setup_frappe_supporting_apps.sh", result.stdout)
+        for option in ("--app REPO", "--app-branch BRANCH", "--install-app APP"):
+            self.assertNotIn(option, result.stdout)
+        source = SCRIPT.read_text()
+        self.assertNotIn("bench get-app", source)
+        self.assertNotIn("install-app", source)
+
+
 class AllowBenchUserSshTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

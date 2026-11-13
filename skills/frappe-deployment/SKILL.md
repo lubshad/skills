@@ -99,7 +99,7 @@ Use this skill for the Frappe-specific lifecycle inside GitHub Actions developme
 
 ## Legacy Manual Sync
 
-- Existing app-level `sync.sh` wrappers and `.agents/scripts/sync_frappe_app.sh` are retained only for legacy maintenance.
+- The shared single-app sync helper has been removed. Zeronic's `sync.sh` exits with migration guidance; use its `deploy` helper for development releases. Other existing app-level `sync.sh` scripts are retained only for legacy maintenance.
 - Do not create new wrappers, advertise them as the normal production path, or use them when setting up a new Frappe deployment.
 - Do not delete or rewrite an existing legacy sync script unless the user explicitly requests that app's migration or cleanup.
 - When asked to explain an existing wrapper, state that GitHub Actions plus `deploy` is the current production standard.
