@@ -345,6 +345,51 @@ printf 'Production services, Socket.IO, and %s are healthy through nginx.\n' $(q
 EOF
 }
 
+allow_bench_user_ssh_command() {
+  cat <<EOF
+bench_user=$(quote "$BENCH_USER");
+case "\$bench_user" in
+  ''|*[!a-zA-Z0-9_-]*) printf 'Unsafe bench username for SSH configuration.\n' >&2; exit 1 ;;
+esac;
+sshd_bin="\$(command -v sshd || printf /usr/sbin/sshd)";
+"\$sshd_bin" -t;
+effective_config="\$("\$sshd_bin" -T)";
+if ! printf '%s\n' "\$effective_config" | grep -q '^allowusers '; then
+  printf 'SSH AllowUsers is unrestricted; no change needed.\n';
+elif printf '%s\n' "\$effective_config" | awk '\$1 == "allowusers" {for (i=2; i<=NF; i++) print \$i}' | grep -Fxq "\$bench_user"; then
+  printf 'SSH AllowUsers already includes %s.\n' "\$bench_user";
+else
+  ssh_service=ssh;
+  if ! systemctl is-active --quiet ssh; then
+    ssh_service=sshd;
+    systemctl is-active --quiet sshd;
+  fi;
+  config=/etc/ssh/sshd_config;
+  backup="\$(mktemp /etc/ssh/sshd_config.frappe-setup.XXXXXXXX)";
+  cp -p "\$config" "\$backup";
+  # Prepend in global scope, before any Match blocks. AllowUsers entries
+  # accumulate, so existing users and all other access rules stay intact.
+  if ! { printf 'AllowUsers %s\n' "\$bench_user"; cat "\$backup"; } > "\$config" ||
+     ! "\$sshd_bin" -t ||
+     ! "\$sshd_bin" -T | awk '\$1 == "allowusers" {for (i=2; i<=NF; i++) print \$i}' | grep -Fxq "\$bench_user"; then
+    cp -p "\$backup" "\$config";
+    rm -f "\$backup";
+    printf 'SSH validation failed; restored original configuration.\n' >&2;
+    exit 1;
+  fi;
+  if ! systemctl reload "\$ssh_service"; then
+    cp -p "\$backup" "\$config";
+    systemctl reload "\$ssh_service" || true;
+    rm -f "\$backup";
+    printf 'SSH reload failed; restored original configuration.\n' >&2;
+    exit 1;
+  fi;
+  rm -f "\$backup";
+  printf 'Added %s to SSH AllowUsers and reloaded %s.\n' "\$bench_user" "\$ssh_service";
+fi
+EOF
+}
+
 copy_authorized_keys_command() {
   cat <<EOF
 source_keys="\$HOME/.ssh/authorized_keys";
@@ -600,6 +645,8 @@ remote_privileged "if [ \"\$(cat /etc/sudoers.d/$(quote "$BENCH_USER") 2>/dev/nu
 remote_privileged "$(copy_authorized_keys_command)"
 remote_privileged "install -d -o $(quote "$BENCH_USER") -g $(quote "$BENCH_USER") $(quote "$(dirname "$BENCH_DIR")")"
 remote_privileged "install -d -o $(quote "$BENCH_USER") -g $(quote "$BENCH_USER") $(quote "/home/$BENCH_USER/.config") $(quote "/home/$BENCH_USER/.cache") $(quote "/home/$BENCH_USER/.local") $(quote "/home/$BENCH_USER/.local/bin") $(quote "/home/$BENCH_USER/.local/share"); chown -R $(quote "$BENCH_USER"):$(quote "$BENCH_USER") $(quote "/home/$BENCH_USER/.config") $(quote "/home/$BENCH_USER/.cache") $(quote "/home/$BENCH_USER/.local")"
+
+remote_privileged "$(allow_bench_user_ssh_command)"
 
 printf 'Phase 2/3: install and configure Frappe as %s.\n' "$BENCH_USER"
 remote_as_bench_user 'for directory in "$HOME/.config" "$HOME/.cache" "$HOME/.local" "$HOME/.local/bin" "$HOME/.local/share"; do test -w "$directory"; done'
