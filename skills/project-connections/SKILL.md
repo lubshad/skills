@@ -195,6 +195,8 @@ Both Flutter applications support an `API_BASE_URL` override. Read backend URLs 
 | Admin host (dev) | `https://sync-admin.coreaxissolutions.in` | Existing **development** preview, not production; SSH `next@sync-concept-1.coreaxissolutions.in`, directory `$HOME/sync-admin/release`, PM2 `sync-admin`, loopback port `3102` |
 | Admin deploy (dev) | `next_apps/sync-dating/admin/.github/workflows/deploy-development.yml` | `./deploy --dev` promotes to `development` with `development-backup`; credentials are `SYNC_ADMIN_DEV_*` inside the `development` environment |
 | Admin host (prod) | `https://admin.sync-app.in` | Production admin; deployment settings belong in the GitHub `production` environment |
+| Admin runtime directory (prod) | `$HOME/sync/admin` | Production workflow deploys directly here without a `release/` subfolder; PM2 `sync-admin`, loopback port `3102`. Resolve `$HOME` for the configured SSH user. Development remains `$HOME/sync-admin/release`. |
+| Public web runtime directory (prod) | `$HOME/sync/web` | Production workflow deploys directly here without a `release/` subfolder; PM2 `sync-web`, loopback port configured by `SYNC_WEB_APP_PORT` (currently `3103`). Development remains `$HOME/sync-web/release`. |
 | Admin deploy (prod) | `next_apps/sync-dating/admin/.github/workflows/deploy-production.yml` | `./deploy` promotes to `production`; uses `SYNC_ADMIN_*` production settings, including `SYNC_ADMIN_PUBLIC_URL=https://admin.sync-app.in` and `SYNC_ADMIN_FRAPPE_API_BASE_URL=https://backend.sync-app.in` |
 | Frappe site | `sites/sync-dating.localhost` | Local Sync Dating target site |
 | API base URL (dev) | `http://sync-dating.localhost:8000` | Local Frappe API host |
@@ -221,6 +223,14 @@ iOS production-backed TestFlight uses Xcode Cloud with
 post-action must be configured separately. Development retains `development`
 and `lib/main_dev.dart`. See `flutter_apps/syncapp/docs/ios-xcode-cloud.md`.
 This explicit project contract overrides the generic development-default examples.
+
+Production Next.js runtime artifacts share the `$HOME/sync/` project directory:
+`admin/` and `web/` contain their standalone `server.js` and runtime environment
+directly. These are workflow targets, not proof of a live folder migration.
+Production workflows recreate the corresponding PM2 process to update its script
+and working directory, causing a brief restart interruption. The admin workflow
+preserves the legacy server-managed cookie key on first migration; sync excludes
+that key. Old runtime folders are retained for separately authorized cleanup.
 
 ### Sync Agora Calling
 

@@ -650,7 +650,7 @@ remote_as_bench_user "if [ ! -d $(quote "$BENCH_DIR/sites/$SITE_NAME") ]; then $
 
 if [[ "$INSTALL_PRODUCTION" -eq 1 ]]; then
   printf 'Phase 3/3: configure production services and start Bench services.\n'
-  remote_as_bench_user_privileged "systemctl is-enabled --quiet nginx || systemctl enable nginx; systemctl is-active --quiet nginx || systemctl start nginx"
+  remote_as_bench_user_privileged "if id www-data >/dev/null 2>&1; then if ! id -nG www-data | tr ' ' '\n' | grep -Fxq $(quote "$BENCH_USER"); then usermod -aG $(quote "$BENCH_USER") www-data; systemctl restart nginx; fi; fi; systemctl is-enabled --quiet nginx || systemctl enable nginx; systemctl is-active --quiet nginx || systemctl start nginx"
   remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); if [ -f config/supervisor.conf ] && [ -f config/nginx.conf ]; then printf 'Production config already exists; skipping bench setup production.\n'; else sudo /home/$(quote "$BENCH_USER")/.local/bin/bench setup production $(quote "$BENCH_USER") --yes; fi")"
   remote_as_bench_user "$(bench_user_env "cd $(quote "$BENCH_DIR"); printf 'y\\n' | bench setup supervisor; grep -Fq '[program:$(basename "$BENCH_DIR")-node-socketio]' config/supervisor.conf")"
   remote_as_bench_user_privileged "$(supervisor_reload_command)"

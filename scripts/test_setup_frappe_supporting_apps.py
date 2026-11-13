@@ -26,6 +26,15 @@ class SupportingAppsTest(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Dry-run only. No server connection", result.stdout)
+        self.assertIn("Build assets for all Bench apps.", result.stdout)
+
+    def test_skip_build_dry_run(self):
+        result = self.cli(
+            "--host", "example.com", "--app", "flutter_utils", "--skip-build",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Skip asset build (explicit opt-out).", result.stdout)
+        self.assertNotIn("Build assets for all Bench apps.", result.stdout)
 
     def test_git_branch_is_required(self):
         result = self.cli("--host", "example.com", "--git-app", "https://github.com/frappe/erpnext.git")
@@ -99,6 +108,10 @@ class SupportingAppsTest(unittest.TestCase):
                 package = stage / name / name
                 package.mkdir(parents=True)
                 (package / "__init__.py").write_text("")
+                public = package / "public"
+                public.mkdir(mode=0o700)
+                (public / "fixture.css").write_text("body {}")
+                (public / "fixture.css").chmod(0o600)
                 (package / "hooks.py").write_text(
                     "required_apps = " + repr([names[0]] if name == names[1] else [])
                 )
@@ -131,11 +144,20 @@ class SupportingAppsTest(unittest.TestCase):
             self.assertLess(commands.index("install-app fixture_utils"), commands.index("install-app fixture_calls"))
             self.assertEqual(commands.count(" migrate"), 1)
             self.assertEqual(commands.count("restart"), 1)
+            self.assertEqual(commands.splitlines().count("build"), 1)
+            self.assertNotIn("build --app", commands)
+            self.assertLess(commands.index(" migrate"), commands.index("\nbuild\n"))
+            self.assertLess(commands.index("\nbuild\n"), commands.index("restart"))
             for name in names:
                 self.assertFalse((bench / "apps" / name / "obsolete.py").exists())
                 self.assertEqual((bench / "apps" / name / ".env").read_text(), "server-only")
                 self.assertTrue(os.access(bench / "apps" / name / "run.sh", os.X_OK))
                 self.assertTrue((bench / ".supporting-app-backups/run.test" / f"{name}.tar.gz").is_file())
+                package = bench / "apps" / name / name
+                self.assertTrue(package.stat().st_mode & 0o010)
+                self.assertEqual((package / "public").stat().st_mode & 0o050, 0o050)
+                self.assertTrue((package / "public/fixture.css").stat().st_mode & 0o040)
+                self.assertEqual((bench / "sites/example.com/site_config.json").read_text(), "{}")
             # Rerunning updates packages, but must not reinstall existing site apps.
             log.write_text("")
             result = subprocess.run(["bash"], input=command, text=True, capture_output=True, env=env)
@@ -183,6 +205,7 @@ class SupportingAppsTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("get-app --branch stable --skip-assets https://fixtures.example/fixture_git", log.read_text())
             self.assertNotIn("-m pip", log.read_text())
+            self.assertNotIn("build", log.read_text().splitlines())
             self.assertIn("fixture_git\n", (bench / "sites/apps.txt").read_text())
             # A second commit is fast-forwarded into the existing server checkout.
             (package / "update.py").write_text("updated = True")

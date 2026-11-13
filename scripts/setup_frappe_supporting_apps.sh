@@ -4,7 +4,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_BENCH="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HOST="" USER_NAME=frappe PORT=22 KEY="" BENCH=/home/frappe/frappe-bench SITE=""
-EXECUTE=0 BUILD=0
+EXECUTE=0 BUILD=1
 KINDS=() SOURCES=() BRANCHES=()
 # The same filters protect staging uploads and existing server-only files.
 EXCLUDES=(.git .github .env '.env.*' '*.pem' '*.key' '*.p12' '*.pfx'
@@ -27,7 +27,8 @@ Run locally after server setup. Dry-run by default (no SSH connection).
   --ssh-port PORT      Default: 22
   --ssh-key PATH       Default: <local-bench>/personal if present, else SSH defaults
   --bench-dir PATH     Default: /home/frappe/frappe-bench
-  --build              Build assets for selected apps before restarting
+  --build              Build assets for all Bench apps (default)
+  --skip-build         Explicitly skip the asset build before restarting
   -h, --help           Show help
 
 Examples:
@@ -41,7 +42,8 @@ checkout. Local sync refuses to overwrite a Git-managed app. Public Git access
 is non-interactive. No sudo, GitHub credentials, forced resets, or site creation.
 New Git apps use bench get-app --skip-assets, which installs the Python package
 and registers the app. Existing Git updates refresh the Python package. Git code
-is first cloned into staging for preflight checks. Use --build for asset builds.
+is first cloned into staging for preflight checks. All Bench app assets are built
+by default before restarting. Use --skip-build only when a build is not needed.
 
 Execute takes source backups under <bench>/.supporting-app-backups and, when
 --site is supplied, a Bench site backup before modifying live app source.
@@ -60,6 +62,7 @@ while (($#)); do
     --help|-h) usage; exit 0 ;;
     --execute) EXECUTE=1; shift ;;
     --build) BUILD=1; shift ;;
+    --skip-build) BUILD=0; shift ;;
     --app|--git-app)
       value "$@"
       KINDS+=("$1"); SOURCES+=("$2"); BRANCHES+=(""); shift 2 ;;
@@ -113,7 +116,11 @@ for i in "${!NAMES[@]}"; do
 done
 printf 'Back up source; install Python packages; register Bench apps; restart services.\n'
 [[ -z $SITE ]] || printf 'Back up site %s; install missing apps; migrate site.\n' "$SITE"
-((BUILD == 0)) || printf 'Build selected app assets.\n'
+if ((BUILD)); then
+  printf 'Build assets for all Bench apps.\n'
+else
+  printf 'Skip asset build (explicit opt-out).\n'
+fi
 if ((EXECUTE == 0)); then
   printf 'Dry-run only. No server connection or changes. Add --execute to apply.\n'
   exit 0
@@ -283,8 +290,46 @@ PY
   fi
   if ((BUILD)); then
     STEP=asset-build
-    for name in "${NAMES[@]}"; do bench build --app "$name"; done
+    bench build
   fi
+  STEP=public-asset-permissions
+  # Only public assets are group-readable. Parent paths need traversal, not reads.
+  # Provisioning adds the nginx user to the Bench owner's group.
+  env/bin/python - <<'PY'
+import os
+from pathlib import Path
+import stat
+
+root = Path.cwd()
+gid = root.stat().st_gid
+def grant(path, bits):
+    if path.is_symlink():
+        raise RuntimeError(f'Refusing symlink permission change: {path}')
+    current = path.stat()
+    if current.st_gid != gid:
+        raise RuntimeError(f'Unexpected group on public asset path: {path}')
+    path.chmod(stat.S_IMODE(current.st_mode) | bits)
+
+for app in (root / 'sites/apps.txt').read_text().split():
+    if not app.isidentifier():
+        raise RuntimeError('Invalid registered app name')
+    public = root / 'apps' / app / app / 'public'
+    if not public.is_dir():
+        continue
+    for parent in [root.parent, root, root / 'apps', public.parent.parent, public.parent]:
+        grant(parent, stat.S_IXGRP)
+    grant(public, stat.S_IRGRP | stat.S_IXGRP)
+    for directory, dirs, files in os.walk(public, followlinks=False):
+        for name in dirs:
+            path = Path(directory) / name
+            if not path.is_symlink():
+                grant(path, stat.S_IRGRP | stat.S_IXGRP)
+        for name in files:
+            path = Path(directory) / name
+            if not path.is_symlink() and path.is_file():
+                grant(path, stat.S_IRGRP)
+    print(f'Public asset group access verified: {app}')
+PY
   STEP=restart
   bench restart
   STEP=verification
