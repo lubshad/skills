@@ -191,15 +191,36 @@ Both Flutter applications support an `API_BASE_URL` override. Read backend URLs 
 | Admin frontend | `next_apps/sync-dating/admin/` | Separate admin UI at `http://sync-dating.localhost:3006` |
 | Public website | `next_apps/sync-dating/web/` | One-page Next.js landing, shared Firebase Google login/account creation, and Razorpay recharge at `http://sync-dating.localhost:3008` |
 | Public web repository | `https://github.com/lubshad/sync-web` | Private repository; local `origin` uses `git@github.com:lubshad/sync-web.git`, default branch `main` |
+| Public web deployments | `next_apps/sync-dating/web/.github/workflows/deploy-development.yml` and `deploy-production.yml` | `./deploy` promotes to `production`; `./deploy --dev` promotes to `development`, with target-specific backups. Both call `deploy-reusable.yml` and read environment-scoped `SYNC_WEB_*` settings; see the app README for the full inventory. Hosted website origins, SSH targets and loopback ports must be configured separately; workflow files alone do not establish a live release. |
 | Admin host (dev) | `https://sync-admin.coreaxissolutions.in` | Existing **development** preview, not production; SSH `next@sync-concept-1.coreaxissolutions.in`, directory `$HOME/sync-admin/release`, PM2 `sync-admin`, loopback port `3102` |
-| Admin deploy (dev) | `next_apps/sync-dating/admin/.github/workflows/deploy-development.yml` | `./deploy` promotes to `development` with `development-backup`; credentials are `SYNC_ADMIN_DEV_*` inside the `development` environment |
-| Admin deploy (prod) | `next_apps/sync-dating/admin/.github/workflows/deploy-production.yml` | `./deploy --prod` promotes to `production`; **no production target is provisioned** and its `SYNC_ADMIN_*` environment credentials remain unconfigured |
+| Admin deploy (dev) | `next_apps/sync-dating/admin/.github/workflows/deploy-development.yml` | `./deploy --dev` promotes to `development` with `development-backup`; credentials are `SYNC_ADMIN_DEV_*` inside the `development` environment |
+| Admin host (prod) | `https://admin.sync-app.in` | Production admin; deployment settings belong in the GitHub `production` environment |
+| Admin deploy (prod) | `next_apps/sync-dating/admin/.github/workflows/deploy-production.yml` | `./deploy` promotes to `production`; uses `SYNC_ADMIN_*` production settings, including `SYNC_ADMIN_PUBLIC_URL=https://admin.sync-app.in` and `SYNC_ADMIN_FRAPPE_API_BASE_URL=https://backend.sync-app.in` |
 | Frappe site | `sites/sync-dating.localhost` | Local Sync Dating target site |
 | API base URL (dev) | `http://sync-dating.localhost:8000` | Local Frappe API host |
 | Backend host (dev) | `sync-backend.coreaxissolutions.in` | Current **development** host and site; Bench `/home/frappe/frappe-bench`, SSH user `frappe` |
-| Backend deploy (dev) | `apps/sync_dating/.github/workflows/deploy-development.yml` | GitHub Actions deploys the `development` branch promoted by `apps/sync_dating/deploy`, using the `development` environment and `FRAPPE_DEV_*` credentials |
-| Backend deploy (prod) | `apps/sync_dating/.github/workflows/deploy-production.yml` | Deployed by the `production` branch and the `production` environment; **no production host exists yet** |
+| Backend deploy (dev) | `apps/sync_dating/.github/workflows/deploy-development.yml` | GitHub Actions deploys the `development` branch promoted by `apps/sync_dating/deploy --dev`, using the `development` environment and `FRAPPE_DEV_*` credentials |
+| Backend host (prod) | `https://backend.sync-app.in` | Production Frappe backend; public URL is `FRAPPE_PUBLIC_URL=https://backend.sync-app.in` in the GitHub `production` environment |
+| Backend SSH (prod) | `ssh.sync-app.in:22` | SSH user `frappe`; Bench `/home/frappe/frappe-bench`; Frappe site `backend.sync-app.in`. SSH access and Bench/site paths verified; this is the SSH endpoint, not the public API hostname. |
+| Backend deploy (prod) | `apps/sync_dating/.github/workflows/deploy-production.yml` | Deployed by the `production` branch and the `production` environment using `FRAPPE_*` settings; keep production credentials separate from development |
 | Concept 1 PWA | `next_apps/sync-dating/concept-1/` | Static installable prototype at `http://sync-dating.localhost:3001`; required URL for local runs, tests, and Playwright |
+
+Sync-specific deploy interface: backend, admin, public web, and mobile use
+`./deploy` for production and `./deploy --dev` for development; `--prod` remains
+an explicit production alias. Both targets retain matching backup branches.
+Mobile promotion retains its version bump. Android `production` runs
+`flutter_apps/syncapp/.github/workflows/android-closed.yml`, builds `lib/main_prod.dart`,
+and uploads to closed testing API track `alpha` (not public `production`). The
+GitHub `production` environment requires `SYNCAPP_PROD_PLAY_CREDENTIALS_JSON`;
+`SYNCAPP_PLAY_RELEASE_STATUS` defaults to `draft` while Play setup is incomplete.
+Development retains internal testing; both Android workflows share concurrency
+group `syncapp-google-play`. See `flutter_apps/syncapp/docs/android-closed-testing.md`.
+iOS production-backed TestFlight uses Xcode Cloud with
+`SYNCAPP_APP_ENVIRONMENT=production`, exact branch `production`, and target
+`lib/main_prod.dart`; the matching Apple workflow, signing, and TestFlight
+post-action must be configured separately. Development retains `development`
+and `lib/main_dev.dart`. See `flutter_apps/syncapp/docs/ios-xcode-cloud.md`.
+This explicit project contract overrides the generic development-default examples.
 
 ### Sync Agora Calling
 
@@ -221,11 +242,12 @@ Both Flutter applications support an `API_BASE_URL` override. Read backend URLs 
 #### Local URLs
 
 - Run each Next.js development server with hostname `sync-dating.localhost`, not `localhost` or `127.0.0.1`, so future Frappe CORS, session cookies, and Socket.IO share the site hostname.
-- `sync-backend.coreaxissolutions.in` is the development target, not production. When a production host is provisioned, keep `FRAPPE_DEV_*` on this host and repoint `FRAPPE_*` inside the `production` environment; never let a production workflow fall back to the development host.
+- `sync-backend.coreaxissolutions.in` remains the development target. Production uses `https://backend.sync-app.in`. Keep `FRAPPE_DEV_*` on development and `FRAPPE_*` inside the `production` environment; never let a production workflow fall back to development. Production SSH details and the internal Frappe site name must come from the actual server configuration, not be inferred from the public URL.
 - Concept 1 is the only Sync concept in use; reserve port `3001` for it.
 - Reserve port `3006` for the separate Sync Dating admin UI.
 - Reserve port `3008` for the public Sync website. Its BFF calls the existing shared Firebase login and Sync account/finance APIs, keeping upstream credentials server-controlled.
-- The existing hosted admin URL `sync-admin.coreaxissolutions.in` is development; do not add a `-dev` hostname or a second server instance for this setup. Its previous `production` deployment label was historical, not a production-host designation. Keep future production credentials separate, with no fallback to this development server.
+- The existing hosted admin URL `sync-admin.coreaxissolutions.in` remains development; its previous `production` deployment label was historical. Production uses `https://admin.sync-app.in` with backend `https://backend.sync-app.in`. Keep production credentials separate, with no fallback to development.
+- The mobile app's `AppConfig.prod` uses `https://backend.sync-app.in`; `AppConfig.dev` keeps the development backend. Public web production sets server-only `SYNC_API_BASE_URL=https://backend.sync-app.in`; its public website origin is configured separately and is not the admin origin. Registered production hosts do not prove deployment, credentials, or live health have been verified.
 
 ## Zeronic Project
 
