@@ -71,7 +71,7 @@ Examples:
   setup_frappe_server.sh --site example.com --frappe-version 16 --ssl-email admin@example.com --admin-password x --mariadb-root-password y
 
 After provisioning, add or update extra apps separately with:
-  .agents/scripts/setup_frappe_supporting_apps.sh --host SERVER --app flutter_utils
+  .agents/scripts/sync_frappe_supporting_apps.sh --host SERVER --app flutter_utils
 That script also supports public Git apps and optional site installation.
 USAGE
 }
@@ -289,15 +289,53 @@ nginx_reload_command() {
   cat <<EOF
 if [ -f $(quote "$BENCH_DIR/config/nginx.conf") ]; then
   if command -v nginx >/dev/null 2>&1; then
-    systemctl is-enabled --quiet nginx || systemctl enable nginx;
-    systemctl is-active --quiet nginx || systemctl start nginx;
+    nginx_backup="\$(python3 - <<'PY_NGINX_ORDER'
+import pathlib
+import re
+import shutil
+import tempfile
+
+config = pathlib.Path('/etc/nginx/nginx.conf')
+text = config.read_text()
+patterns = [
+    r'(?m)^[ \t]*include[ \t]+/etc/nginx/conf\.d/\*\.conf[ \t]*;[^\n]*$',
+    r'(?m)^[ \t]*include[ \t]+/etc/nginx/sites-enabled/\*[ \t]*;[^\n]*$',
+]
+matches = [list(re.finditer(pattern, text)) for pattern in patterns]
+if any(len(items) != 1 for items in matches):
+    raise SystemExit('Expected exactly one conf.d and one sites-enabled include; leaving nginx.conf unchanged.')
+conf, sites = (items[0] for items in matches)
+if conf.start() < sites.start():
+    updated = (text[:conf.start()] + sites.group() + text[conf.end():sites.start()]
+               + conf.group() + text[sites.end():])
+    with tempfile.NamedTemporaryFile(prefix='nginx.conf.before-include-order-',
+                                     dir=config.parent, delete=False) as backup:
+        backup_path = backup.name
+    shutil.copy2(config, backup_path)
+    try:
+        config.write_text(updated)
+    except Exception:
+        shutil.copy2(backup_path, config)
+        raise
+    print(backup_path)
+PY_NGINX_ORDER
+)";
     nginx_error="\$(nginx -t 2>&1 || true)";
     if [[ "\$nginx_error" == *'unknown log format "main"'* ]]; then
       cat > /etc/nginx/conf.d/00-frappe-log-format.conf <<'NGINX_LOG_FORMAT'
 log_format main '\$remote_addr - \$remote_user [\$time_local] "\$request" \$status \$body_bytes_sent';
 NGINX_LOG_FORMAT
     fi;
-    nginx -t && systemctl reload nginx;
+    if ! nginx -t; then
+      if [ -n "\$nginx_backup" ]; then
+        cp -p -- "\$nginx_backup" /etc/nginx/nginx.conf;
+        printf 'Restored nginx.conf after validation failed. Backup: %s\n' "\$nginx_backup" >&2;
+      fi;
+      exit 1;
+    fi;
+    systemctl is-enabled --quiet nginx || systemctl enable nginx;
+    systemctl is-active --quiet nginx || systemctl start nginx;
+    systemctl reload nginx;
   else
     printf 'nginx not available; skipping nginx reload.\n';
   fi;

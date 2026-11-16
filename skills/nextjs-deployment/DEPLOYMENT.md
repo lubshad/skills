@@ -73,6 +73,8 @@ Use this skill when explaining, creating, or updating deployment workflows and s
 
 ## Nginx Pattern
 
+- For deployment SSH through Cloudflare Tunnel, read `github-actions-deployment.md` and its Cloudflare Tunnel SSH reference. Use the same proxy and verified host-key configuration for SSH and rsync; the tunnel does not replace the app's nginx reverse proxy.
+
 - Prefer nginx setup scripts that run from the local app directory and configure the remote server over SSH, matching the deploy script's SSH host/user/key options.
 - Use a dedicated remote vhost file in `/etc/nginx/sites-available/`
 - Symlink it into remote `/etc/nginx/sites-enabled/`

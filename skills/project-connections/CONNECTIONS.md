@@ -202,6 +202,22 @@ Both Flutter applications support an `API_BASE_URL` override. Read backend URLs 
 | Backend deploy (prod) | `apps/sync_dating/.github/workflows/deploy-production.yml` | Deployed by the `production` branch and the `production` environment using `FRAPPE_*` settings; keep production credentials separate from development |
 | Concept 1 PWA | `next_apps/sync-dating/concept-1/` | Static installable prototype at `http://sync-dating.localhost:3001`; required URL for local runs, tests, and Playwright |
 
+### Sync Production SSH Transport
+
+- Backend, admin, and public web use `frappe@ssh.sync-app.in` through Cloudflare
+  Tunnel with `ProxyCommand cloudflared access ssh --hostname %h`. Port `22`
+  is the origin SSH port, not proof of a directly reachable public SSH listener.
+- The current tunnel connection was verified without browser login. CI still
+  needs its environment-scoped deployment private key; a future interactive
+  Access policy may need separately authorized non-interactive credentials.
+- Production workflow configurations in all three repositories use cloudflared
+  and a verified public server key in `.github/ssh_known_hosts.production`.
+  Backend/admin use host-key alias `sync-production`; web uses
+  `sync-web-production`. These describe repository configuration, not a completed
+  GitHub deployment. Development retains its existing direct SSH targets.
+- For runner setup, pin verification, and Access authentication rules, read
+  `github-actions-deployment.md` and its Cloudflare Tunnel SSH reference.
+
 Sync-specific deploy interface: backend, admin, public web, and mobile use
 `./deploy` for production and `./deploy --dev` for development; `--prod` remains
 an explicit production alias. Both targets retain matching backup branches.

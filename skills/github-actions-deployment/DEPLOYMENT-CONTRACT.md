@@ -92,7 +92,8 @@ Use this skill when creating or updating GitHub Actions workflows that build, re
 - Keep the private SSH key in GitHub Secrets, scoped to the deployment's environment. Prefer environment variables for non-sensitive values such as SSH host, SSH user, public URL, and optional port; use secrets for those values only when the deployment contract treats infrastructure metadata as confidential.
 - Keep private keys scoped to only the validation and SSH setup steps; do not expose them as job-wide environment variables
 - Write the private key to a temporary file in the runner and lock its permissions
-- Seed `known_hosts` with `ssh-keyscan` before `ssh` or `rsync`
+- Identify whether the deployment endpoint uses direct SSH or Cloudflare Tunnel before configuring the runner. For tunnel SSH, read [Cloudflare Tunnel SSH](references/cloudflare-tunnel-ssh.md); use its proxy and pinned-host-key flow for both SSH and rsync. Preserve unrelated direct-SSH environments.
+- Populate `known_hosts` with trusted server public keys and keep strict host-key checking enabled. Direct `ssh-keyscan` collects keys only from reachable SSH ports; verify collected fingerprints through a trusted channel. It cannot use an SSH `ProxyCommand` and is not the discovery path for tunnel-only endpoints.
 - Verify required remote directories and runtime prerequisites before syncing files
 - Restart the process manager only after a successful artifact sync
 - Run a local remote health check after restart so the workflow fails on a broken deployment

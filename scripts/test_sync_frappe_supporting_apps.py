@@ -9,7 +9,8 @@ import tempfile
 import unittest
 
 
-SCRIPT = Path(__file__).with_name("setup_frappe_supporting_apps.sh")
+SCRIPT = Path(__file__).with_name("sync_frappe_supporting_apps.sh")
+LEGACY_SCRIPT = SCRIPT.with_name("setup_frappe_supporting_apps.sh")
 SCRATCH = Path.home() / ".local/share/opencode/disk-tmp/opencode"
 
 
@@ -23,7 +24,9 @@ class SupportingAppsTest(unittest.TestCase):
         scripts = self.bench / ".agents/scripts"
         scripts.mkdir(parents=True)
         self.script = scripts / SCRIPT.name
+        self.legacy_script = scripts / LEGACY_SCRIPT.name
         shutil.copyfile(SCRIPT, self.script)
+        shutil.copyfile(LEGACY_SCRIPT, self.legacy_script)
         for name, dependencies in (("fixture_base", []), ("fixture_consumer", ["fixture_base"])):
             app = self.bench / "apps" / name
             package = app / name
@@ -47,6 +50,19 @@ class SupportingAppsTest(unittest.TestCase):
             "PATH": f"{fakebin}:{os.environ['PATH']}",
             "TEST_EXTERNAL_CALLS": str(self.external_calls),
         }
+
+    def test_legacy_entry_point(self):
+        for args in [("--help",), ("--host", "example.com", "--app", "fixture_base"), ("--invalid",)]:
+            with self.subTest(args=args):
+                expected = self.cli(*args)
+                result = subprocess.run(
+                    ["bash", str(self.legacy_script), *args], capture_output=True, text=True,
+                    env=self.cli_env, timeout=10,
+                )
+                self.assertFalse(self.external_calls.exists(), "Legacy dry run attempted external work")
+                self.assertEqual(result.returncode, expected.returncode)
+                self.assertEqual(result.stdout, expected.stdout)
+                self.assertEqual(result.stderr, expected.stderr)
 
     def cli(self, *args):
         result = subprocess.run(

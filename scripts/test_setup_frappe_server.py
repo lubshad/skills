@@ -28,7 +28,7 @@ class ProvisioningOnlyTest(unittest.TestCase):
             ["bash", str(SCRIPT), "--help"],
             capture_output=True, text=True, check=True,
         )
-        self.assertIn("setup_frappe_supporting_apps.sh", result.stdout)
+        self.assertIn("sync_frappe_supporting_apps.sh", result.stdout)
         for option in ("--app REPO", "--app-branch BRANCH", "--install-app APP"):
             self.assertNotIn(option, result.stdout)
         source = SCRIPT.read_text()

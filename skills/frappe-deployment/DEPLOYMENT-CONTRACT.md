@@ -58,7 +58,7 @@ Use this skill for the Frappe-specific lifecycle inside GitHub Actions developme
 
 - Start from `.agents/skills/github-actions-deployment/reference/frappe-production.yml`.
 - Check out the pushed target commit and validate all required variables and secrets.
-- Configure a temporary step-scoped SSH private key and seed `known_hosts`.
+- Configure a temporary step-scoped SSH private key and trusted `known_hosts`. If SSH uses Cloudflare Tunnel, follow the proxy and pinned-host-key flow in `github-actions-deployment.md` and its Cloudflare Tunnel SSH reference before any remote Bench command.
 - Validate the remote Bench before syncing.
 - Rsync only the app repository into `<bench-dir>/apps/<app-name>` and exclude repository metadata, workflows, local environments, caches, and credential files.
 - Install the package with `env/bin/pip install -e apps/<app-name>`.
