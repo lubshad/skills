@@ -39,6 +39,7 @@ class ProvisioningOnlyTest(unittest.TestCase):
 class AllowBenchUserSshTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        SCRATCH.mkdir(parents=True, exist_ok=True)
         definitions = SCRIPT.read_text().split('while [[ $# -gt 0 ]]; do', 1)[0]
         cls.command = subprocess.run(
             ["bash", "-c", "source /dev/stdin"],

@@ -14,51 +14,96 @@ SCRATCH = Path.home() / ".local/share/opencode/disk-tmp/opencode"
 
 
 class SupportingAppsTest(unittest.TestCase):
+    def setUp(self):
+        SCRATCH.mkdir(parents=True, exist_ok=True)
+        directory = tempfile.TemporaryDirectory(prefix="supporting-app-cli-", dir=SCRATCH)
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        self.bench = self.root / "bench"
+        scripts = self.bench / ".agents/scripts"
+        scripts.mkdir(parents=True)
+        self.script = scripts / SCRIPT.name
+        shutil.copyfile(SCRIPT, self.script)
+        for name, dependencies in (("fixture_base", []), ("fixture_consumer", ["fixture_base"])):
+            app = self.bench / "apps" / name
+            package = app / name
+            package.mkdir(parents=True)
+            (package / "__init__.py").write_text("")
+            (package / "hooks.py").write_text(f"required_apps = {dependencies!r}\n")
+            (app / "pyproject.toml").write_text(f"[project]\nname = '{name}'\n")
+
+        # Dry runs must not need local Bench commands or contact any server.
+        fakebin = self.root / "bin"
+        fakebin.mkdir()
+        self.external_calls = self.root / "external-calls"
+        for name in ("ssh", "rsync", "bench"):
+            command = fakebin / name
+            command.write_text(
+                '#!/usr/bin/env bash\nprintf "%s\\n" "$0" >> "$TEST_EXTERNAL_CALLS"\nexit 99\n'
+            )
+            command.chmod(0o755)
+        self.cli_env = {
+            **os.environ,
+            "PATH": f"{fakebin}:{os.environ['PATH']}",
+            "TEST_EXTERNAL_CALLS": str(self.external_calls),
+        }
+
     def cli(self, *args):
-        return subprocess.run(
-            ["bash", str(SCRIPT), *args], capture_output=True, text=True
+        result = subprocess.run(
+            ["bash", str(self.script), *args], capture_output=True, text=True,
+            env=self.cli_env, timeout=10,
         )
+        self.assertFalse(self.external_calls.exists(), "Dry run attempted external work")
+        return result
 
     def test_local_dry_run(self):
         result = self.cli(
-            "--host", "ssh.sync-app.in", "--app", "flutter_utils",
-            "--app", "agora_integration",
+            "--host", "example.com", "--app", "fixture_base",
+            "--app", "fixture_consumer",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Dry-run only. No server connection", result.stdout)
         self.assertIn("Build assets for all Bench apps.", result.stdout)
+        self.assertIn("fixture_base -> apps/fixture_base", result.stdout)
+        self.assertIn("fixture_consumer -> apps/fixture_consumer", result.stdout)
+
+    def test_missing_fixture_package_is_rejected(self):
+        (self.bench / "apps/fixture_base/fixture_base/hooks.py").unlink()
+        result = self.cli("--host", "example.com", "--app", "fixture_base")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Not a local packaged Frappe app: fixture_base", result.stderr)
 
     def test_skip_build_dry_run(self):
         result = self.cli(
-            "--host", "example.com", "--app", "flutter_utils", "--skip-build",
+            "--host", "example.com", "--app", "fixture_base", "--skip-build",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Skip asset build (explicit opt-out).", result.stdout)
         self.assertNotIn("Build assets for all Bench apps.", result.stdout)
 
     def test_git_branch_is_required(self):
-        result = self.cli("--host", "example.com", "--git-app", "https://github.com/frappe/erpnext.git")
+        result = self.cli("--host", "example.com", "--git-app", "https://fixtures.example/fixture_git.git")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("--branch is required", result.stderr)
 
     def test_mixed_dry_run(self):
         result = self.cli(
-            "--host", "example.com", "--app", "flutter_utils",
-            "--git-app", "https://github.com/frappe/erpnext.git",
-            "--branch", "version-16", "--site", "example.com",
+            "--host", "example.com", "--app", "fixture_base",
+            "--git-app", "https://fixtures.example/fixture_git.git",
+            "--branch", "stable", "--site", "example.com",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("branch version-16", result.stdout)
+        self.assertIn("branch stable", result.stdout)
 
     def test_invalid_arguments(self):
         for args in [
             ["--host"],
-            ["--host", "-bad", "--app", "flutter_utils"],
+            ["--host", "-bad", "--app", "fixture_base"],
             ["--host", "example.com", "--app", "../frappe"],
-            ["--host", "example.com", "--app", "flutter_utils", "--app", "flutter_utils"],
+            ["--host", "example.com", "--app", "fixture_base", "--app", "fixture_base"],
             ["--host", "example.com", "--branch", "main"],
             ["--host", "example.com", "--git-app", "https://user:secret@example.com/app", "--branch", "main"],
-            ["--host", "example.com", "--app", "flutter_utils", "--ssh-port", "99999"],
+            ["--host", "example.com", "--app", "fixture_base", "--ssh-port", "99999"],
         ]:
             with self.subTest(args=args):
                 self.assertNotEqual(self.cli(*args).returncode, 0)
