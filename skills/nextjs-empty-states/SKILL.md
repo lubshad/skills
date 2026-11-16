@@ -1,18 +1,12 @@
 ---
 name: nextjs-empty-states
-description: Use when implementing Next.js loading, empty, no-data, no-results, error, or retry states.
+description: Use when implementing Next.js loading, empty, no-results, error, or retry states.
 ---
 
-Follow these Next.js implementation rules for empty/no-data states. Read `frontend-ui-states.md` first; it owns UI state behavior.
+# Next.js Empty States
 
-## Shared Component
+Read `frontend-ui-states.md`. Use `src/components/ui/EmptyState.tsx`; features pass icon/title/copy/actions, while the component owns token-based layout/styles. Pair with existing `SectionHeader` when it already owns title/top-right action. Document materially different states as explicit component exceptions.
 
-- Use `src/components/ui/EmptyState.tsx` for standard empty states.
-- Pass only icon, title, descriptive copy, and action props from the feature.
-- Keep layout and styling in the shared component.
-- Prefer pairing `EmptyState` with `SectionHeader` when the screen already has a title and top-right action.
+## Verification
 
-## Styling
-
-- Use design tokens and shared CSS variables.
-- If a section needs a materially different empty state, treat it as an explicit exception and document the reason in the component.
+Check shared component reuse, token styling, and applicable UI states.

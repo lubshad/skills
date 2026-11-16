@@ -5,79 +5,35 @@ description: Use when a task is not clearly covered by an existing skill, or whe
 
 # Skill Updates
 
-This skill is a decision gate for keeping the workspace skill catalog complete. The rules and skill index live in `.agents/AGENTS.md`, and indexed skills live at `.agents/skills/<name>/SKILL.md`. It triggers whenever the current task is not covered by an existing skill and governs how skills are created or updated.
+Keep the local catalog complete and focused. `.agents/AGENTS.md` owns rules/indexing; `.agents/skills/<name>/SKILL.md` owns each skill.
 
-## When This Skill Activates
+## Coverage gate
 
-Run this check on every task before writing code or making changes:
+Before code or changes, scan the workspace index and system-provided skills. A clear domain/workflow match means proceed without prompting.
 
-1. Scan the available skills (the skill table in `.agents/AGENTS.md` and the system-provided skill list).
-2. If at least one skill's "When to apply" clearly matches the task's domain or workflow, the task is covered — proceed normally, do not prompt.
-3. If no skill clearly covers the task, the task is uncovered — stop and run the Confirmation Flow below.
+For uncovered work, including one-off fixes, stop and use `question` to offer **Create a new skill**, **Update an existing skill** (name the closest candidate), or **Skip — continue without a skill**. An ambiguous answer gets one focused follow-up unless the user invites more.
 
-Do not prompt when:
+Skip the prompt for informational/conversational requests, explicit opt-outs (including “just fix it”), or explicit skill creation/update requests. The last already authorizes the skill work.
 
-- The request is purely informational or conversational (no task is being performed).
-- The user explicitly says to skip skill creation (for example "just fix it", "don't make a skill").
-- The user explicitly asks to create or update a skill — the intent is already confirmed, so go straight to execution.
+## Write or update
 
-The user has opted in to prompting on every uncovered task, including one-off fixes. Do not silently skip the prompt because the task seems small.
+Read an existing skill before editing; retain its name. For new names, use lowercase hyphens matching `^[a-z0-9]+(?:-[a-z0-9]+)*$`, equal to the directory name. Prefer a domain prefix from `.agents/scripts/validate_skills.py`; cross-cutting names may omit one. Confirm unclear names before writing.
 
-## Confirmation Flow
+Each skill needs YAML `name` and `description` starting **Use when**, an H1, scope/core rules, and `## Verification`.
 
-When the task is uncovered, use the `question` tool to ask the user how to proceed. Offer these options:
+**One rule, one home.** Keep shared product rules separate from platform implementation. Shared `frontend-*` entry points exclude platform paths such as `lib/core/`; put platform examples in `references/` or adapters (see `frontend-button-clicks`). Keep core instructions inline; disclose long examples and uncommon branches through conditional references.
 
-- **Create a new skill** — capture a reusable skill for this domain/workflow.
-- **Update an existing skill** — extend a skill that is close but incomplete. Name the closest candidate in the question text.
-- **Skip — continue without a skill** — do the task now; no catalog change.
+State non-triggers and when each companion is required or optional. Route by changed behavior, not every surface in a touched file. Reference only existing local skills; dangling backtick `name.md` references with known prefixes fail validation.
 
-If the answer is ambiguous, ask one focused follow-up (for example, which existing skill to update, or the preferred name for a new skill). Do not ask more than one round of clarification unless the user invites it.
+## Register and route
 
-On confirmation, execute the chosen path below.
+New/renamed skills need a row in the matching platform, frontend, technical, workflow, or compatibility table of `.agents/AGENTS.md`: <code>| `name.md` | one-line trigger |</code>.
 
-## Creating a New Skill
+For multi-skill routing or new boundary cases, update `.agents/skills/routing-scenarios.json` rather than expanding skill prose. Follow `.agents/skills/routing-scenarios.md`: include `scenario`, `skills`, and applicable forbidden skills/actions and accepted/rejected selections. All referenced skills must be active. These checks test explicit routing contracts, not model understanding.
 
-1. **Pick the name** following these rules (enforced by `.agents/scripts/validate_skills.py`):
-   - Lowercase, hyphenated, matches `^[a-z0-9]+(?:-[a-z0-9]+)*$`.
-   - The directory name must equal the `name` frontmatter field.
-   - Prefer a known prefix when the domain fits: `admin-`, `api-`, `app-`, `coreaxis-`, `country-`, `event-`, `flutter-`, `frappe-`, `frontend-`, `github-`, `login-`, `nextjs-`, `pipecat-`, `project-`, `setup-`.
-   - Non-prefixed names (like `skill-updates`) are acceptable for cross-cutting meta skills.
-   - Confirm the name with the user before writing if it is not obvious from the confirmation.
+## Verification
 
-2. **Create** `.agents/skills/<name>/SKILL.md` with this structure:
-   - YAML frontmatter with `name` and `description`.
-   - `description` must start with the literal words **Use when**.
-   - An H1 title.
-   - A "When to Use" / core-rules section.
-   - A `## Verification` section (over 100 lines without one triggers a quality warning; add it regardless for consistency).
-
-3. **Keep platform specifics out of shared skills.** Shared `frontend-*` skills must not contain `lib/core/` or other platform-specific paths (quality warning). Put platform examples in a `references/` subfolder or in the platform adapter skill. See `frontend-button-clicks` for the `references/` pattern.
-
-   Keep the entry-point skill focused; move long examples and uncommon exceptions into `references/`. Include explicit non-triggers and distinguish required companions from optional companions with their activation conditions. Do not load related skills solely because their surface exists in a touched file.
-
-4. **Do not reference skill names that do not exist.** A backtick reference of the form <code>`name.md`</code> whose name starts with a known prefix is validated; a dangling reference fails the catalog check. Only backtick-reference skills that already exist in `.agents/skills/`.
-
-## Updating an Existing Skill
-
-1. Read the current `SKILL.md` before editing.
-2. Edit in place. Keep the `name` field unchanged — it must match the directory name.
-3. Keep `description` starting with "Use when".
-4. If the change is really a new routing scenario rather than new skill content, add an entry to `.agents/skills/routing-scenarios.json` instead of bloating the skill body. Follow `.agents/skills/routing-scenarios.md`; include forbidden skills/actions and accepted/rejected selections for boundary cases. These are explicit routing-contract checks, not a model-routing benchmark.
-5. Do not introduce dangling backtick `.md` references.
-
-## Registering the Skill
-
-A new or renamed skill is not active until it is indexed:
-
-1. Add a row to the correct table in `.agents/AGENTS.md`:
-   - Platform-Agnostic Frontend UI, Flutter Implementation, Next.js Implementation, Backend And Frappe, Cross-Platform Technical, Workspace Workflow, or Compatibility Adapters.
-   - Format: <code>| `name.md` | one-line "When to apply" description |</code>
-   - The `validate_skills.py` index check fails if any skill directory is absent from `.agents/AGENTS.md`.
-2. If the skill defines a multi-skill routing scenario, add an entry to `.agents/skills/routing-scenarios.json` with `scenario` and `skills` fields. The scenario validator fails if any listed skill is not an active skill directory.
-
-## Validation
-
-After every create/update/rename, run both validators. They must exit 0 with no errors before the work is considered done:
+After every create/update/rename, run all three checks; each must exit 0 without errors:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 .agents/scripts/validate_skills.py
@@ -85,12 +41,4 @@ PYTHONDONTWRITEBYTECODE=1 python3 .agents/scripts/validate_skill_scenarios.py
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s .agents/scripts -p 'test_*.py'
 ```
 
-Quality warnings (long skills without a Verification section, platform specifics in shared skills, heavy absolute language) do not block, but fix them when practical.
-
-## Verification
-
-- `SKILL.md` frontmatter has `name` (matches directory) and `description` starting with "Use when".
-- No backtick `.md` references to skills that do not exist in `.agents/skills/`.
-- New or renamed skill is listed in the matching `.agents/AGENTS.md` table.
-- New routing scenarios in `routing-scenarios.json` reference only active skill directories.
-- Both validation scripts exit 0.
+Confirm names/frontmatter, local references, index membership, and active scenario skills. Quality warnings are nonblocking; fix them when practical (over 100 lines without Verification, platform details in shared skills, excessive absolute language).

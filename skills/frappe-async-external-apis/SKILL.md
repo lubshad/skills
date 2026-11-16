@@ -1,60 +1,20 @@
 ---
 name: frappe-async-external-apis
-description: Use when Frappe backend code calls external APIs, webhooks, storage providers, or long-running remote services.
+description: Use when Frappe calls external APIs, webhooks, payment/storage providers, or long-running services.
 ---
 
-Follow these async integration rules strictly when working on Frappe code that talks to external systems.
+# Frappe External Work
 
-## When Not To Apply
+**Persist intent, then enqueue.** Requests validate, save local state/pending status, and return without waiting for remote or long-running work unless synchronous behavior is explicitly required. Document safety-critical requirements for verified remote results; local-only database work does not activate this skill.
 
-- Do not enqueue work that must return a verified remote result before a safety-critical local action can proceed; document that synchronous requirement explicitly.
-- Do not use this skill for local database work with no remote or long-running dependency.
+Read `frappe-python.md`; external-client endpoints also need `frappe-api-contracts.md`, mounted refreshes `frappe-realtime-updates.md`.
 
-## Read Alongside
+## Execution
 
-- Backend implementation: `frappe-python.md`.
-- APIs consumed by clients: `frappe-api-contracts.md`.
-- Mounted client refreshes after background updates: `frappe-realtime-updates.md`.
+Use `frappe.enqueue(..., enqueue_after_commit=True)` or the dedicated job helper. Make retries idempotent; track queued/syncing/complete/failed. Log unexpected failures through `frappe.log_error()` without secrets and retain recoverable document status.
 
-## When To Apply
-
-- Apply this skill for any backend change that calls an external API, webhook target, payment gateway, storage provider, or other network service.
-- Apply it alongside `frappe-python.md` for implementation work.
-- Apply it alongside `frappe-api-contracts.md` when the endpoint is consumed by Flutter, Next.js, or another external client.
-
-## Core Rule
-
-- Do not block the request on external API calls or other long-running functions unless the user explicitly requires synchronous behavior.
-- Prefer saving local intent or state first, then enqueueing background work with Frappe jobs.
-
-## Request Design
-
-- Keep request handlers fast and predictable.
-- Validate inputs in the request, persist the local document or task state, and return immediately.
-- Record enough local metadata to track queued, in-progress, completed, and failed external work.
-
-## Background Execution
-
-- Use `frappe.enqueue(..., enqueue_after_commit=True)` or a dedicated background job helper for outbound API work.
-- Make background jobs idempotent where possible so retries do not create duplicates externally.
-- Log unexpected failures with `frappe.log_error()` and persist a user-visible sync status on the document when relevant.
-
-## Sync Patterns
-
-- For create flows, create the local record first when possible and mark it as pending sync before the background job runs.
-- For update flows, store the local change and enqueue the external sync unless strict synchronous confirmation is required.
-- For delete flows, prefer background deletion of the external resource and do not block the user request on the remote API.
-- For long-running external processing, add polling or scheduled sync jobs until a terminal state is reached.
-
-## User Experience
-
-- Expose clear local status fields such as `queued`, `syncing`, `complete`, or `failed`.
-- Add manual retry or sync actions when the feature benefits from operator control.
-- Do not make the UI wait on remote processing when a local pending state is sufficient.
+Create locally pending first where possible; save local updates before sync; prefer background external deletion. Long external processing uses polling/scheduled synchronization to terminal status. Offer manual retry when useful; UI need not wait where pending suffices.
 
 ## Verification
 
-- Verify the local intent and pending status persist before the job is eligible to run.
-- Verify a retry does not duplicate the remote side effect.
-- Verify failed jobs log diagnostic context without secrets and expose a recoverable local status.
-- Verify relevant clients receive a realtime update or have a supported refresh path when the job reaches a terminal state.
+Check intent/status persist before job eligibility, retries avoid duplicate remote effects, failures expose diagnostic/recoverable local state, and clients receive realtime or a supported refresh at completion.

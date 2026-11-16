@@ -3,7 +3,7 @@ name: frontend-interaction-patterns
 description: Use when designing frontend destructive actions, confirmations, modals, Escape key dialog closing, recovery flows, action language, or refresh behavior.
 ---
 
-Follow these frontend interaction rules across all UI platforms.
+# Frontend Interactions
 
 ## Platform Strategy
 
@@ -24,16 +24,12 @@ Follow these frontend interaction rules across all UI platforms.
 - Reuse established modal/dialog/sheet patterns rather than one-off layouts.
 - Modal headers, close buttons, spacing, and action areas should match the product style unless there is a clear reason to diverge.
 - On mobile, complex form-oriented modals should use fullscreen task surfaces with sticky header and sticky bottom actions.
-- In desktop view, any active modal, dialog, sheet, or overlay must close/dismiss when the user presses the `Escape` (Esc) key (see Focus/Nested behaviors below).
 
 ## Modal Keyboard Accessibility (Escape to Close)
 
-- **Escape Key Dismissal**: Any active dialog or overlay on desktop must dismiss on pressing the `Escape` key.
-- **Focus Management**:
-  - **Initial Focus**: On open, move focus inside the dialog (wrapper or first interactive element) to capture keyboard events immediately.
-  - **Restore Focus**: On close, restore focus to the trigger element that opened the dialog.
-- **Nested Modals**: Pressing `Escape` must only close the topmost/most recently active overlay, returning focus to the underlying dialog context.
-- **Unsaved Changes**: If a dialog contains a form with unsaved changes, pressing `Escape` must trigger a confirmation dialog to prevent data loss (which itself can be cancelled using `Escape`).
+- Desktop `Escape` dismisses only the topmost active modal, dialog, sheet, or overlay.
+- On open, focus its wrapper or first control; on close, restore trigger/underlying-dialog focus.
+- With unsaved form changes, `Escape` opens a discard confirmation instead. `Escape` can cancel that confirmation.
 
 ## Refresh And Invalidation
 

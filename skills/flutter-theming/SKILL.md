@@ -1,41 +1,24 @@
 ---
 name: flutter-theming
-description: Use when changing Flutter ThemeData, Theme.of(context), brand colors, typography, notifications, local fonts, or animations.
+description: Use when changing Flutter themes, colors, typography, notifications, local fonts, or animations.
 ---
 
-Follow these Flutter theming implementation rules strictly. Visual behavior and device intent live in `frontend-device-layout.md` and other `frontend-*` UI skills.
+# Flutter Theming
 
-## Fonts
+Read `frontend-design-consistency.md` before visual changes and `frontend-device-layout.md` for device intent. Inspect shell, peer screens, theme, and shared widgets; match composition, not colors alone.
 
-- Never use Google Fonts. Use only bundled/local font assets declared in `pubspec.yaml`.
+## Theme and motion
 
-## Notifications
+Use bundled fonts declared in `pubspec.yaml`, not Google Fonts. Define colors/type/spacing in `ThemeData` or the existing theme layer; read through `Theme.of(context)`/app constants instead of feature-local hardcoding. Reuse core widgets. Support existing light/dark themes and surface hierarchy; styling one screen does not authorize global backgrounds/restyling.
 
-- Never use Snackbars for user-facing messages. Use the `toastification` package or the app's toast helper.
-- This includes form saves, publishing, validation feedback, authentication, and async failure messages—not only theme changes. Do not introduce `SnackBar`, `showSnackBar`, or `ScaffoldMessenger` message calls in feature code.
-- Reuse the app's existing toast helper before calling `toastification` directly. Masar Admin uses `ToastHelper.success/error/info` from `lib/core/utils/toast_helper.dart`; Masar mobile uses `AppToast` from `lib/core/utils/app_toast.dart`.
-- Toast helpers must support multi-line and larger messages.
-- Use appropriate toast types: success, error, warning, info.
+Forms use shared input tokens: darker outline borders and subtle fill. Use `flutter_animate` for useful entry/transitions/loading micro-interactions without harming scanning or over-animating layout.
 
-## Animations
+## Messages
 
-- Use `flutter_animate` for transitions and micro-interactions.
-- Apply animations to enhance UX, such as list item entry, page transitions, and loading states.
-- Do not over-animate or animate layout in ways that harms scanability.
+Use the existing toast helper, then `toastification` if needed—not `SnackBar`, `showSnackBar`, or `ScaffoldMessenger` messages. Applies to saves, publishing, auth, validation, and async errors too; preserve required inline field errors.
 
-## Theme Usage
-
-- Before implementing new screens/components or visual changes, follow `frontend-design-consistency.md`: inspect the app shell, comparable screens, theme, and shared widgets. Match composition and component patterns, not only theme colors.
-- Check the app's existing theme layer and `lib/core/widgets/` before adding local styling. Reuse established tokens and widgets; inheriting `ThemeData` does not justify a screen-specific visual language.
-- Define colors, text styles, and spacing in `ThemeData` or the app theme layer.
-- Reference theme values via `Theme.of(context)` or established app theme constants.
-- Do not hardcode colors or font sizes in feature widget code when theme values exist.
-- Support light/dark themes where the app supports them.
-- Follow the target app's established surface hierarchy for detail/list backgrounds; do not force a global white background or change unrelated screens to style one feature.
-- For form controls, prefer shared input tokens rather than per-screen overrides: darker outline borders for clearer field distinction and a subtle filled background for text inputs.
+Masar Admin: `ToastHelper.success/error/info` in `lib/core/utils/toast_helper.dart`; mobile: `AppToast` in `lib/core/utils/app_toast.dart`. Helpers must support multiline/large text and success/error/warning/info types.
 
 ## Verification
 
-- Search touched Flutter files for `SnackBar`, `showSnackBar`, and `ScaffoldMessenger`; user-facing feedback must use the shared toast helper instead.
-- Confirm success and failure use the correct toast type and are emitted once from screen-level listeners.
-- Run `dart format` and targeted Flutter analysis on changed files.
+Search changed files for snackbar calls. Check correctly typed feedback emitted once from screen-level listeners. Run `dart format` and targeted Flutter analysis.

@@ -1,22 +1,15 @@
 ---
 name: flutter-linting
-description: Use when changing Flutter code and linting, formatting, analysis, or code-quality rules apply.
+description: Use when changing Flutter code.
 ---
 
-Follow these linting rules strictly when working on Flutter code.
+# Flutter Quality
 
-## Rules
-
-- **No deprecated APIs.** Never use deprecated methods, classes, or parameters. Find and use the replacement immediately.
-- **No unused imports.** Remove every unused import before committing. Run `dart fix --apply` if needed.
-- **Zero warnings.** Fix all lint warnings and errors — do not suppress them with `// ignore` unless there is a documented reason.
-- **Logging.** Never use `print()` or `debugPrint()` directly in business logic or UI. Always use the project's dedicated logger, such as `AppLogger` (typically located at `core/utils/app_logger.dart`), to ensure logs are consistently formatted and properly stripped or routed in release builds.
-- **Prefer const.** Use `const` constructors wherever possible for widgets and values.
-- **Trailing commas.** Always add trailing commas after the last parameter in multi-line function calls and widget trees — this keeps diffs clean and auto-formatting consistent.
-- **Analysis options.** Respect the project's `analysis_options.yaml`. Do not weaken lint rules.
+- Replace deprecated APIs and remove unused imports (`dart fix --apply` when needed).
+- Resolve all warnings/errors; suppress only with a documented reason. Preserve `analysis_options.yaml` strictness.
+- Use the dedicated logger, such as `AppLogger` in `core/utils/app_logger.dart`, not business/UI `print()` or `debugPrint()`. Preserve release log handling.
+- Prefer `const`; use trailing commas in multiline calls/widget trees.
 
 ## Verification
 
-- For ordinary Flutter code and UI changes, run `flutter analyze` as the default verification step.
-- Do not run `flutter build`, `flutter run`, or start a local app server just to check for errors unless the user explicitly asks for it.
-- Only build or run when the task changes build/deploy/run configuration, platform entry points, generated assets, or a runtime behavior that cannot be reasonably verified by analysis alone.
+Default to `flutter analyze`. Do not build, run, or start an app server merely to find errors unless requested. Build/run only for changed build/deploy/run config, entrypoints, generated assets, or behavior analysis cannot reasonably verify.

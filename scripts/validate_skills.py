@@ -9,10 +9,12 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 
 SKILL_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SKILL_REFERENCE = re.compile(r"`([a-z][a-z0-9-]*)\.md`")
+MARKDOWN_LINK = re.compile(r'\[[^\]]*\]\(([^\s)]+)(?:\s+"[^"]*")?\)')
 SKILL_PREFIXES = (
 	"admin-",
 	"api-",
@@ -58,7 +60,6 @@ def parse_frontmatter(path: Path) -> tuple[dict[str, str], list[str]]:
 def validate(skills_dir: Path) -> list[str]:
 	errors: list[str] = []
 	names: dict[str, Path] = {}
-	skill_files: list[Path] = []
 
 	if not skills_dir.is_dir():
 		return [f"Skills directory does not exist: {skills_dir}"]
@@ -71,7 +72,6 @@ def validate(skills_dir: Path) -> list[str]:
 			errors.append(f"{skill_dir}: missing SKILL.md")
 			continue
 
-		skill_files.append(skill_file)
 		fields, parse_errors = parse_frontmatter(skill_file)
 		errors.extend(parse_errors)
 		if parse_errors:
@@ -97,25 +97,36 @@ def validate(skills_dir: Path) -> list[str]:
 		elif not description.lower().startswith("use when"):
 			errors.append(f"{skill_file}: description must start with 'Use when'")
 
-	for skill_file in skill_files:
-		for reference in SKILL_REFERENCE.findall(skill_file.read_text(encoding="utf-8")):
+	# Disclosed runbooks are part of the contract too, not just entry points.
+	for skill_file in sorted(skills_dir.glob("*/**/*.md")):
+		content = skill_file.read_text(encoding="utf-8")
+		for reference in SKILL_REFERENCE.findall(content):
 			if reference.startswith(SKILL_PREFIXES) and reference not in names:
 				errors.append(f"{skill_file}: references unknown skill {reference}.md")
+		for target in MARKDOWN_LINK.findall(content):
+			url = urlsplit(target)
+			if url.scheme or url.netloc or not url.path:
+				continue
+			path = Path(unquote(url.path))
+			if path.suffix.lower() == ".md" and not (skill_file.parent / path).is_file():
+				errors.append(f"{skill_file}: missing Markdown reference {target}")
 
 	return errors
 
 
 def quality_warnings(skills_dir: Path) -> list[str]:
 	warnings: list[str] = []
-	for skill_file in sorted(skills_dir.glob("*/SKILL.md")):
+	for skill_file in sorted(skills_dir.glob("*/**/*.md")):
 		content = skill_file.read_text(encoding="utf-8")
 		line_count = len(content.splitlines())
-		if line_count > QUALITY_LENGTH_THRESHOLD and "## Verification" not in content:
+		entry_point = skill_file.name == "SKILL.md"
+		if entry_point and line_count > QUALITY_LENGTH_THRESHOLD and "## Verification" not in content:
 			warnings.append(
 				f"{skill_file}: {line_count} lines without a Verification section"
 			)
 		if (
-			skill_file.parent.name.startswith("frontend-")
+			entry_point
+			and skill_file.parent.name.startswith("frontend-")
 			and skill_file.parent.name != "frontend-dummy-data"
 			and "lib/core/" in content
 		):

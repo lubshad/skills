@@ -3,7 +3,7 @@ name: frontend-carousels
 description: Use when designing carousel or slider UX, behavior, responsiveness, accessibility, and content rules.
 ---
 
-Follow these carousel/slider UX rules for frontend platforms.
+# Carousels
 
 ## Core Rules
 
@@ -18,12 +18,7 @@ Follow these carousel/slider UX rules for frontend platforms.
 - Row carousels: item/card-based, snap or free-scroll depending on content, touch and trackpad friendly.
 - Galleries/testimonials: predictable navigation, readable dwell time, pause on hover where supported.
 
-## Anti-Patterns
-
-- Installing multiple carousel libraries in one app.
-- Hand-rolling timers and drag behavior when the platform-approved library covers the use case.
-- Hardcoding card widths/gaps outside the platform's token/layout system.
-- Autoplay that prevents users from reading or interacting with content.
+Use the approved library's timers/drag behavior and platform sizing tokens. Autoplay must allow reading and interaction.
 
 ## Platform Adapters
 

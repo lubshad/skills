@@ -1,38 +1,18 @@
 ---
 name: nextjs-carousels
-description: Use when implementing Swiper or carousel behavior in the Next.js masarnext app.
+description: Use when implementing Swiper carousels in masarnext.
 ---
 
-Follow these Next.js carousel implementation rules in `next_apps/masarnext/`. Read `frontend-carousels.md` first; it owns carousel UX behavior.
+# Next.js Carousels
 
-## Library
+Read `frontend-carousels.md` first. MasarNext uses only Swiper (`swiper/react`), not jQuery/Owl/Slick or a second library.
 
-- Use Swiper (`swiper/react`) for carousel/slider implementations.
-- Do not install jQuery-based libraries such as Owl Carousel or Slick.
-- Do not add a second carousel library to masarnext.
+Render declarative `Swiper`/`SwiperSlide` in `"use client"` components, never `new Swiper`. Import required modules from `swiper/modules` through `modules`, base `swiper/css`, and only module CSS used.
 
-## Client Component
+Responsive rows use `slidesPerView="auto"`, token-derived slide widths/gaps, and `nextjs-responsive-scaling.md`. Overrides use CSS Modules `className`/`:global(...)` or Swiper class props.
 
-Swiper touches the DOM, so components rendering `<Swiper>` must be client components:
+Convert custom sliders during related work, not a standalone conversion mega-PR.
 
-```tsx
-"use client";
+## Verification
 
-import { Swiper, SwiperSlide } from "swiper/react";
-import { Autoplay, Pagination } from "swiper/modules";
-import "swiper/css";
-```
-
-Import module CSS only for modules you use.
-
-## Implementation Rules
-
-- Modules such as Pagination, Autoplay, Navigation, FreeMode, Mousewheel, and EffectFade are imported from `swiper/modules` and passed through the `modules` prop.
-- Use `<Swiper>` and `<SwiperSlide>`, not imperative `new Swiper(...)`.
-- Use `slidesPerView="auto"` with token-derived per-slide widths for responsive rows.
-- Keep spacing tied to CSS tokens; do not hardcode px gaps that break `nextjs-responsive-scaling.md`.
-- CSS overrides should use CSS Modules via `className` and `:global(...)`, or Swiper class props where available.
-
-## Migration
-
-Convert existing custom sliders opportunistically when touching them for related work. Do not land a standalone mega-PR just to convert every carousel.
+Check module/CSS imports, responsive token use, and shared carousel behavior.

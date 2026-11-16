@@ -1,164 +1,22 @@
 ---
 name: flutter-web-deployment
-description: Use when changing Flutter web deployment scripts, nginx, certbot, static artifact sync, or GitHub Actions deploy workflows.
+description: Use when changing Flutter web build/sync scripts, nginx, certbot, or deployment workflows.
 ---
 
 # Flutter Web Deployment
 
-Use this skill when creating, updating, or explaining Flutter web deployment scripts, nginx setup, certbot setup, static artifact sync, or GitHub Actions deployment workflows.
+Keep responsibilities separate: `deploy.sh` builds/syncs, `version_increment.sh` bumps, `setup_nginx.sh` hosts, `setup_certbot.sh` manages TLS. Actions deploys generated artifacts; it does not provision nginx/certificates.
 
-## Read With
+Read [the deployment contract](WEB-DEPLOYMENT.md) before modifying these scripts/workflows. It owns flags, exact commands, nginx/security/cache rules, credential handling, environment mappings, and verification.
 
-- `flutter-utilities.md` for Flutter web run/build expectations and environment handling.
-- `flutter-linting.md` for verification rules.
-- `github-actions-deployment.md` for CI/CD workflow, secrets, SSH, and repo-boundary rules.
-- `project-connections.md` when hostnames, public URLs, API base URLs, or app/backend mappings matter.
-- `flutter-admin-branding.md` if deployment changes web metadata, favicon, PWA manifest, app title, or brand assets.
+## Invariants
 
-## File Responsibilities
-
-Keep deployment responsibilities split into separate scripts:
-
-- `deploy.sh`: build and sync Flutter web artifacts.
-- `version_increment.sh`: increment `pubspec.yaml` version/build metadata before build.
-- `setup_nginx.sh`: install/configure nginx and static site hosting only.
-- `setup_certbot.sh`: install/configure certbot certificates only.
-- `nginx_configuration`: static nginx template when the app uses a committed template instead of generated config.
-
-Do not run certbot from `setup_nginx.sh`. Do not configure nginx or certbot from GitHub Actions deploy workflows.
-
-## Local Deploy Script
-
-For `deploy.sh`:
-
-- Start with `#!/bin/bash` and `set -euo pipefail`.
-- Prefer app-local `deploy_targets.conf` when targets, tenants, entrypoints, hosts, or remote roots vary.
-- Validate required tools before use: `flutter`, `ssh`, and `rsync`.
-- When creating or materially updating a Flutter deploy script, include an app-local `version_increment.sh` and call it before building unless the deploy is `--deploy-only`.
-- Default deploy behavior should increment the build number only; support explicit `--version-bump major|minor|patch|build` and `--no-version-increment`.
-- Build with:
-  - `flutter pub get`
-  - `flutter build web --release -t "$TARGET"`
-- Add `--no-tree-shake-icons` only when the existing app needs dynamic icon fonts.
-- Sync only `build/web/` to the remote web root with `rsync -avz --delete`.
-- Create the remote root before sync and set ownership/permissions after sync.
-- Verify the remote deploy by checking `index.html` and counting deployed files.
-- Support `--build-only`, `--deploy-only`, `--clean`, and `--help` unless the existing app has a stricter local convention.
-- Print the selected target, Flutter entrypoint, remote host, remote path, public host, SSH key, and SSH port before deployment.
-
-## Version Increment Script
-
-For `version_increment.sh`:
-
-- Start with `#!/bin/bash` and `set -euo pipefail`.
-- Read the app-local `pubspec.yaml` and update a single `version: x.y.z+n` line.
-- Support non-interactive bump modes: `major`, `minor`, `patch`, and `build`.
-- Default to `build` when no bump mode is provided.
-- Always increment the build number for every successful bump, including major/minor/patch bumps.
-- Support `--dry-run` to print the current and next version without editing files.
-- Avoid interactive prompts; deployment scripts must be runnable from CI or unattended shells.
-- Fail clearly when `pubspec.yaml` is missing or the version line cannot be parsed.
-
-## Nginx Setup Script
-
-For `setup_nginx.sh`:
-
-- Start with `#!/bin/bash` and `set -euo pipefail`.
-- Read the same target config as `deploy.sh` where practical.
-- Install nginx on Ubuntu/Debian only when it is missing.
-- Enable and start nginx.
-- Create the remote web root and set `www-data:www-data` ownership with `755` permissions.
-- Write the nginx site config to `/etc/nginx/sites-available/<config-name>` and symlink it into `/etc/nginx/sites-enabled/`.
-- Run `sudo nginx -t` before reloading nginx.
-- Support `--check`, `--test`, `--reload`, `--remove`, and `--help`.
-- Never invoke certbot.
-
-The nginx config must include:
-
-- `server_name` for the configured public host.
-- `root` pointing to the configured remote web root.
-- Flutter SPA fallback: `try_files $uri $uri/ /index.html`.
-- Long-cache headers for static assets.
-- No-cache handling for `flutter_service_worker.js`.
-- Security headers: `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy`.
-- Hidden-file denial with `location ~ /\.`.
-- App-specific access and error logs.
-
-### Frontend-origin Socket.IO
-
-When the browser frontend is served from a domain different from the Frappe
-backend, the realtime client must connect on the frontend's own origin and the
-frontend vhost must reverse-proxy `/socket.io` to the Frappe realtime server.
-This keeps the browser same-origin and avoids the backend's cross-origin
-rejection.
-
-- Point the app's `socketBaseUrl` at the frontend host while `apiBaseUrl` and the
-  Frappe site namespace stay on the backend host.
-- Add the managed proxy with
-  `.agents/scripts/add_socketio_proxy.sh --frontend <frontend-host> --backend <backend-host> [--ssh-key PATH]`.
-  It sets `Host`, `Origin`, and `X-Frappe-Site-Name` to the backend host, backs up
-  the vhost, runs `nginx -t`, and reloads; `--dry-run`, `--check`, and `--remove`
-  are supported. The helper
-  `.agents/scripts/socketio_proxy_config.py` does the in-place edit.
-- New vhost scripts for these apps should emit the same
-  `# >>> frappe socket.io proxy (managed) >>>` markers so the helper stays
-  idempotent and existing vhosts remain updatable.
-
-## Certbot Setup Script
-
-For `setup_certbot.sh`:
-
-- Start with `#!/bin/bash` and `set -euo pipefail`.
-- Read the same target config as `deploy.sh` where practical.
-- Require the nginx site config to already exist and pass `sudo nginx -t`.
-- Install `certbot` and `python3-certbot-nginx` on Ubuntu/Debian only when missing.
-- Issue certificates for the configured public host with the nginx plugin.
-- Keep certbot email configurable through `deploy_targets.conf` or a script flag such as `--email`.
-- Refuse to issue certificates without a public host and email unless the script explicitly supports `--register-unsafely-without-email`.
-- Support `--check`, `--dry-run-renewal`, `--renew`, and `--help`.
-- Reload nginx only after certbot succeeds.
-
-## GitHub Actions
-
-### Dual-environment Flutter web releases
-
-- For explicitly migrated apps, `./deploy` promotes `development`/`development-backup`; `./deploy --prod` promotes `production`/`production-backup`. This branch helper is separate from `deploy.sh`.
-- Add a development workflow building `lib/main_dev.dart`, while keeping production on `lib/main_prod.dart`. Verify the development app configuration uses development API, site and socket domains; a differently named entrypoint alone does not ensure isolation.
-- Use distinct target environments, host/path/public-URL variables, and concurrency groups. Require the matching branch for manual retries. Keep private keys step-scoped and clean them up even on failure.
-- Xealth Admin development uses `backend-dev.xealth.ca` for SSH/API, `adminpanel-dev.xealth.ca` for web/sockets, `root`, and `/var/www/xealth_admin` on the separate dev host. GitHub variables are `XEALTH_ADMIN_DEV_SSH_HOST`, `XEALTH_ADMIN_DEV_SSH_USER`, optional `XEALTH_ADMIN_DEV_SSH_PORT`, `XEALTH_ADMIN_DEV_REMOTE_PATH`, and `XEALTH_ADMIN_DEV_PUBLIC_URL`; its SSH secret is `XEALTH_ADMIN_DEV_SSH_PRIVATE_KEY`.
-- Xealth Employee follows the same API/socket split: API on `backend(-dev).xealth.ca`, realtime on `employee(-dev).xealth.ca` (frontend origin, proxied via `/socket.io`). Its frontend hosts are `employee-dev.xealth.ca` and `employee.xealth.ca`, with web root `/var/www/xealth_employee`.
-- Preserve existing production workflows and local script defaults unless asked to migrate them. Verify remote artifacts plus public HTTPS; DNS, nginx and TLS provisioning remain separate.
-
-For Flutter web deploy workflows:
-
-- Start from `../github-actions-deployment/reference/flutter-web-production.yml`
-  when creating a new static web workflow, then apply an app-specific secret prefix.
-- Place `.github/workflows/` inside the actual Flutter app Git repository, not the bench root.
-- Build in GitHub Actions and deploy only the generated `build/web` artifact.
-- Use production branch push triggers plus `workflow_dispatch`.
-- Add `concurrency` for production deploys.
-- Use a GitHub `environment` with the public URL when available.
-- Validate required secrets before build/deploy.
-- Read SSH host, user, private key, and optional port from secrets.
-- Seed `known_hosts` with `ssh-keyscan`.
-- Run `flutter pub get` and `flutter build web --release -t <target>`.
-- Verify `build/web/index.html` exists before syncing.
-- Sync `build/web/` with `rsync -avz --delete`.
-- Verify the remote `index.html` after sync.
-
-Use a consistent secret prefix per app, for example:
-
-- `<APP>_SSH_HOST`
-- `<APP>_SSH_USER`
-- `<APP>_SSH_PORT`
-- `<APP>_SSH_PRIVATE_KEY`
-
-GitHub Actions must not install nginx, run certbot, edit server vhosts, or manage TLS certificates. Those steps belong to the explicit server setup scripts.
+- Build selected entrypoint, verify `build/web/index.html`, then sync only `build/web/` to the verified root; confirm remote artifacts and public HTTPS separately.
+- Web deploy defaults to build-number increment (unlike branch promotion's patch default), with explicit bump/skip/deploy-only controls.
+- `deploy` branch promotion remains separate from `deploy.sh`. Migrated dual environments keep distinct targets/config/credentials/concurrency; entrypoint names alone do not prove backend isolation.
+- Cross-domain Frappe realtime connects through frontend-origin `/socket.io`, not the backend API origin; use `setup-frappe-realtime.md`.
+- Read `github-actions-deployment.md` for CI/security and `project-connections.md` for hosts; branding changes also need `flutter-admin-branding.md`.
 
 ## Verification
 
-- Run `flutter analyze` for normal Flutter code changes.
-- Run `flutter build web --release -t <target>` when changing deployment, build flags, entrypoints, web metadata, generated assets, or CI build behavior.
-- For script-only changes, run `bash -n deploy.sh version_increment.sh setup_nginx.sh setup_certbot.sh` for the scripts that exist.
-- Verify `version_increment.sh --dry-run` after creating or changing the version increment script.
-- For workflow changes, inspect the actual app Git repo boundary and validate required secrets are documented in the workflow.
+Run existing-script syntax checks and version dry-run. Build when build flags, entrypoints, metadata/assets, or CI build behavior changes; ordinary code uses analysis. Inspect actual app Git boundaries and documented secrets. Never run deployment merely to validate this skill.

@@ -1,113 +1,20 @@
 ---
 name: nextjs-deployment
-description: Use when changing Next.js deployment scripts, nginx setup, PM2 configuration, or production web deploy flow.
+description: Use when configuring or explaining Next.js deployment, nginx, PM2, runtime environment files, or SSH targets.
 ---
 
 # Next.js Deployment
 
-Use this skill when explaining, creating, or updating deployment workflows and server setup for Next.js applications in this workspace.
+Read [the deployment runbook](DEPLOYMENT.md) before script/workflow/runtime changes. It owns exact artifacts, flags, environment-file handling, Masar legacy paths, Node/PM2 bootstrap, and checks. Use `project-connections.md` for hosts and `github-actions-deployment.md` for CI, credentials, and Cloudflare SSH.
 
-## When To Apply
+## Boundaries
 
-- Creating or updating a Next.js deployment script or GitHub Actions workflow
-- Creating or updating Next.js nginx, PM2, or production runtime setup
-- Explaining how a workspace Next.js application is deployed
-- Adjusting frontend host, SSH key, app directory, PM2 process, or nginx proxy settings
-
-## Masar Paths
-
-- Web app root: `next_apps/masarnext/`
-- Deploy script: `next_apps/masarnext/deploy.sh`
-- Version increment script: `next_apps/masarnext/version_increment.sh`
-- Nginx setup script: `next_apps/masarnext/setup_nginx.sh`
-- Nginx vhost template: `next_apps/masarnext/nginx_configuration`
-- SSH helper: `next_apps/masarnext/sshmain.sh`
-
-## New Service Defaults
-
-- Deploy new applications under the SSH user's home directory as `$HOME/<app-name>`.
-- Resolve the remote `$HOME` over SSH and use the resulting absolute path. Do not assume the home is `/home/<user>`.
-- Run the standalone server and PM2 as the same SSH deployment user so routine artifact sync and restart operations do not require `sudo`.
-- Use an app-specific loopback port and proxy it through nginx; nginx does not require the application to live under `/var/www`.
-- Generate `.env.production` from GitHub environment-scoped variables and secrets and install it at `$HOME/<app-name>/.env.production` (or the active release path required by the runtime). Follow the environment-file contract in `github-actions-deployment.md`.
-- Install PM2 under `$HOME/.local` when global package installation would require elevated permissions, and include `$HOME/.local/bin` in the remote `PATH`.
-- Configure nginx, TLS, and PM2 boot startup separately as one-time privileged server setup.
-
-## Masar Legacy Defaults
-
-- Public frontend host: `masardevelopment.conceptiqs.com`
-- Remote SSH user: `root`
-- Existing scripts use the SSH key name `personal`
-- Remote app directory: `/var/www/masarnext`
-- Local Node bind address: `127.0.0.1`
-- Local Node port: `3000`
-- PM2 process name: `masarnext`
-- Remote Node bootstrap: install Node.js 22 automatically if `node`/`npm` are missing
-
-## Deployment Pattern
-
-- Start scripts with `#!/bin/bash`
-- Prefer `set -euo pipefail`
-- Validate required local tools and paths before building or syncing
-- When creating or materially updating a frontend deploy script, include an app-local `version_increment.sh` and call it before building unless the deploy is `--deploy-only`.
-- Default deploy behavior should increment the patch or build metadata conservatively according to the project's existing version format; support an explicit skip flag such as `--no-version-increment`
-- Build with `npm ci` and `npm run build`; GitHub Actions deployments build in CI, while explicit local deploy scripts build locally
-- Pin the npm version in `package.json` through `packageManager` and install that exact version in CI before `npm ci`; do not rely on the npm version bundled with the selected Node runner image.
-- Use Next.js standalone output for deployment bundles
-- Sync only deployable runtime artifacts to the server
-- Sync `.next/standalone`, `.next/static`, `public/`, and the runtime start script
-- Auto-install Node.js 22 on the remote host when it is missing
-- Run the app behind nginx as a Node process managed by `pm2`
-- Start the generated standalone server bound to `127.0.0.1:3000`
-- Verify the PM2 process after deploy
-
-## Version Increment Pattern
-
-- Keep version increment logic in `version_increment.sh`, separate from `deploy.sh`.
-- Read and update the app-local version source of truth, normally `package.json`.
-- Support non-interactive operation suitable for CI and unattended deploys.
-- Support `--dry-run` and fail clearly if the version field cannot be parsed.
-- Avoid interactive prompts in deploy-time version increments.
+- New services run under the deployment user's resolved `$HOME/<app>` with user-owned PM2 and a loopback port. Provision nginx/TLS/startup separately; preserve Masar's existing `/var/www/masarnext` unless migration is approved.
+- Build using the repository-pinned npm, `npm ci`, and standalone output. Sync runtime artifacts, not source or local dotenv files.
+- GitHub-scoped variables/secrets generate complete `.env.production` before build. Deploy it atomically with mode 600 before PM2 restart; exclude `.env*` from artifact sync and clean temporary files on every exit. No pre-existing remote env is required for managed first deployment.
+- Keep `version_increment.sh` separate, noninteractive, dry-runnable, and called before builds unless deploy-only/skipped.
+- Keep nginx reverse proxy/App Router behavior; no static-export conversion or Frappe Bench commands. Remote privileged setup does not require local nginx/sudo.
 
 ## Verification
 
-- For script-only changes, run `bash -n deploy.sh version_increment.sh setup_nginx.sh` for the scripts that exist.
-- Verify `version_increment.sh --dry-run` after creating or changing the version increment script.
-- Run the clean install and production build with the package-manager version declared by the project.
-- Test GitHub-driven env generation for both targets, missing/invalid values, safe shell/dotenv serialization, file permissions, atomic replacement and cleanup. Check generation precedes build and runtime installation precedes PM2 restart; no pre-existing remote env file should be required for the managed flow.
-
-## Nginx Pattern
-
-- Prefer nginx setup scripts that run from the local app directory and configure the remote server over SSH, matching the deploy script's SSH host/user/key options.
-- Use a dedicated remote vhost file in `/etc/nginx/sites-available/`
-- Symlink it into remote `/etc/nginx/sites-enabled/`
-- Reverse-proxy requests to `http://127.0.0.1:3000`
-- Cache `/_next/static/` aggressively
-- Keep the main app route proxied so App Router and server rendering continue to work
-- Test with remote `nginx -t` before reload
-- Support remote status and maintenance flags such as `--check`, `--test`, `--reload`, and `--remove`.
-- Keep server name, SSH target, SSH key, nginx site name, and app port configurable through flags and/or environment variables.
-
-## Environment Rules
-
-- Read the backend URL from the GitHub-generated `.env.production` at runtime.
-- Do not hardcode the API base URL inside deployment scripts.
-- GitHub Variables hold non-sensitive settings and GitHub Secrets hold credentials/API keys, scoped separately to development and production. Generate and validate the complete `.env.production` before `npm run build`; compile-time `NEXT_PUBLIC_*` values must match the selected environment and are public in browser output.
-- Deploy the generated env file explicitly with mode `600`, atomically replacing the remote file after artifact sync and before PM2 restart. Exclude `.env*` from standalone artifact sync; do not upload local/committed dotenv files as deployment configuration. Clean up generated runner files on success and failure.
-- New services normally use `$HOME/<app-name>/.env.production`; Masar retains `/var/www/masarnext/.env.production` as an existing path but its contents are GitHub-managed. Do not require the remote file to exist before first deployment. Preserve documented server-managed exceptions only when explicitly approved, and inventory server-only settings before migration.
-
-## Safety Rules
-
-- Preserve the existing workflow style unless the user asks for a redesign
-- Fail clearly if the SSH key, env file, or package metadata is missing
-- Avoid destructive remote commands beyond the intended deploy flow
-- Do not require running local nginx or sudo for scripts intended to configure production nginx; perform privileged nginx work on the remote server through SSH.
-- Do not convert this flow into a static export unless the user explicitly asks for that deployment model
-- This deploy flow assumes an Ubuntu/Debian-style remote host because Node bootstrap uses `apt`
-
-## Masar-Specific Notes
-
-- This skill is frontend-only and should not run Frappe bench commands
-- Use `project-connections.md` for the current frontend and backend host mapping
-- If the SSH key path is ambiguous, prefer making it configurable via `--ssh-key`
-- Preserve Masar's existing `/var/www/masarnext` path unless a separate migration is explicitly approved.
+Run existing-script syntax/version dry-run, pinned clean install/build, and the runbook's dual-target env serialization/permissions/ordering/cleanup checks. Deployment itself needs explicit authorization.

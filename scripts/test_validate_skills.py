@@ -77,6 +77,44 @@ class SkillValidatorTests(unittest.TestCase):
 		self.assertIn("without a Verification section", result.stdout)
 		self.assertEqual(result.stderr, "")
 
+	def test_disclosed_runbook_links_resolve_from_their_own_directory(self):
+		skill = self.root / "skills" / "example"
+		with (skill / "SKILL.md").open("a", encoding="utf-8") as entry:
+			entry.write("Read [details](references/details.md#rules).\n")
+		(skill / "references").mkdir()
+		(skill / "references" / "details.md").write_text(
+			"# Rules\nReturn to [entry](../SKILL.md).\n"
+			"Read [remote](https://example.com/missing.md) or [this section](#rules).\n",
+			encoding="utf-8",
+		)
+		result = self.run_validator()
+		self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+	def test_missing_link_in_disclosed_runbook_fails(self):
+		skill = self.root / "skills" / "example"
+		(skill / "DETAILS.md").write_text(
+			"Read [missing](references/missing.md#rules).\n", encoding="utf-8",
+		)
+		result = self.run_validator()
+		self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+		self.assertIn("missing Markdown reference references/missing.md#rules", result.stderr)
+
+	def test_unknown_skill_in_disclosed_runbook_fails(self):
+		(self.root / "skills" / "example" / "DETAILS.md").write_text(
+			"Read `frontend-missing.md`.\n", encoding="utf-8",
+		)
+		result = self.run_validator()
+		self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+		self.assertIn("references unknown skill frontend-missing.md", result.stderr)
+
+	def test_runbook_absolute_language_warning_is_not_hidden_by_disclosure(self):
+		(self.root / "skills" / "example" / "DETAILS.md").write_text(
+			"Always verify ownership.\n" * 11, encoding="utf-8",
+		)
+		result = self.run_validator()
+		self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+		self.assertIn("DETAILS.md: uses absolute language on 11 lines", result.stdout)
+
 
 if __name__ == "__main__":
 	unittest.main()

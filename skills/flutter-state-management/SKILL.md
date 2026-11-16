@@ -1,49 +1,22 @@
 ---
 name: flutter-state-management
-description: Use when adding or modifying Flutter BLoC, Cubit, state classes, events, repositories, or async UI state.
+description: Use when changing Flutter BLoCs, Cubits, events, states, repositories, or async UI state.
 ---
 
-Follow these state management rules strictly when working on Flutter code.
+# Flutter State
 
-## Pattern
+Use **BLoC**, one per feature concern (separate listing/form concerns, not a feature-wide god BLoC). Store `<name>_bloc.dart`, `<name>_event.dart`, and `<name>_state.dart` in `features/<name>/bloc/`.
 
-Use **BLoC** (Business Logic Component) for all state management.
+- Events name actions/triggers (`LoadPlayers`, `SearchChanged`); states name explicit outcomes (`PlayersLoading`, `PlayersLoaded`, `PlayersError`) rather than less-clear status enums.
+- BLoCs own business/data flow and call repositories, which call the API client. UI responds to states with navigation, dialogs, and toasts.
+- Provide at screen scope when pushing screens; app-root providers are for truly global concerns such as auth. `BlocProvider` auto-disposes; manually created BLoCs must be closed.
 
-## Structure
+## Provider context
 
-Each feature's BLoC lives in its own folder:
+A screen's `State.context` is above providers created by its own `build`. Read BLoCs from descendant `BlocBuilder`, `BlocConsumer`, `BlocListener`, `Builder`, or child contexts. Pass that context into action/filter/pagination/refresh/save/delete/navigation/dialog callbacks.
 
-```
-features/<name>/bloc/
-├── <name>_bloc.dart        # BLoC class
-├── <name>_event.dart       # Event definitions
-└── <name>_state.dart       # State definitions
-```
+Capture the BLoC before awaiting a dialog/route, then check `context.mounted` and the result before dispatch. For complex screens, extract a private child below `BlocProvider` so its context can safely read the BLoC.
 
-## Rules
+## Verification
 
-- **One BLoC per feature concern.** A listing screen gets its own BLoC; a form screen gets its own BLoC. Do not create a single "god BLoC" for an entire feature.
-- **Events are inputs.** Name them as user actions or system triggers: `LoadPlayers`, `DeletePlayer`, `SearchChanged`.
-- **States are outputs.** Use explicit states: `PlayersLoading`, `PlayersLoaded`, `PlayersError`. Avoid generic "status" enums when distinct state classes are clearer.
-- **No UI logic in BLoCs.** BLoCs handle business logic and data flow only. Navigation, dialogs, and toasts are triggered by the UI layer in response to state changes.
-- **No direct API calls in BLoCs.** BLoCs call repositories; repositories call the API client.
-- **Provide BLoCs at the screen level.** Use `BlocProvider` when pushing a screen, not at the app root (unless the BLoC is truly global like auth).
-- **Dispose properly.** BLoCs provided via `BlocProvider` auto-dispose. Never create BLoCs manually without closing them.
-
-## Provider Context Safety
-
-- When a screen creates a `BlocProvider` in its own `build` method, never call `context.read<FeatureBloc>()` from the `State.context` or from methods that implicitly use it. That context is above the provider.
-- Read feature BLoCs from the `BuildContext` supplied by `BlocBuilder`, `BlocConsumer`, `BlocListener`, `Builder`, or child widgets below the provider.
-- Pass the bloc-aware `BuildContext` into callbacks that dispatch events, show dialogs, navigate, filter, paginate, refresh, save, or delete.
-- If a callback awaits a dialog or route before dispatching, capture the bloc before the `await`:
-
-  ```dart
-  Future<void> _confirmDelete(BuildContext context, Item item) async {
-    final bloc = context.read<ItemsBloc>();
-    final confirmed = await showDialog<bool>(context: context, builder: ...);
-    if (!context.mounted || confirmed != true) return;
-    bloc.add(DeleteItem(item.id));
-  }
-  ```
-
-- Prefer extracting a private child view under `BlocProvider` for complex screens. The child view's `build` context can safely read the screen-level bloc.
+Check repository boundaries, provider ancestry, awaited callback safety, explicit outcomes, and disposal.

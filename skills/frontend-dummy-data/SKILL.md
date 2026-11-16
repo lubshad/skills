@@ -1,74 +1,25 @@
 ---
 name: frontend-dummy-data
-description: Use when adding or changing development-only random data filling behavior for frontend forms.
+description: Use when adding or changing development-only form autofill.
 ---
 
-This skill applies to development-only random data filling for frontend forms.
+# Development Autofill
 
-## When Not To Apply
+Activate for autofill changes, not merely because a form exists. Sensitive credentials/OTP/payment forms require an explicit safe test need. Never populate real secrets or submit/trigger external actions automatically.
 
-- Do not load this skill just because a form exists; use it when adding or changing development autofill.
-- Do not add autofill to credential, OTP, payment, or other sensitive forms without an explicit safe testing requirement. Never populate real secrets or submit data automatically.
+**One shared generator per platform.** No feature generators or inline fake values. Add uncovered primitives centrally; populate the same controlled state/controllers as manual input and respect dependency order (start date before derived end date).
 
-## Core Rule
+| Platform | Generator | Guard | Label |
+|---|---|---|---|
+| Next.js | `src/lib/dev/DummyDataGenerator.ts` | `process.env.NODE_ENV === 'development'` | Fill Random Data |
+| Flutter | `lib/core/utils/dummy_data_generator.dart` | `kDebugMode` | Fill Dummy Data |
 
-Each platform has exactly one shared dummy data generator. Never create feature-specific generators or inline fake values in form components.
+Guard control **and** generator import/use so release builds expose none.
 
-| Platform | Canonical path |
-|----------|---------------|
-| Next.js | `src/lib/dev/DummyDataGenerator.ts` |
-| Flutter | `lib/core/utils/dummy_data_generator.dart` |
+## Primitive contract
 
-## Dev-Only Guards
-
-| Platform | Guard |
-|----------|-------|
-| Next.js | `process.env.NODE_ENV === 'development'` |
-| Flutter | `kDebugMode` |
-
-The autofill control and generator import/use must be behind the platform guard so release builds do not expose the feature.
-
-## Labels
-
-- Next.js: `Fill Random Data`.
-- Flutter: `Fill Dummy Data`.
-
-## Behavior
-
-- Autofill writes into the same controlled state/controllers as manual input.
-- Populate dependent fields in valid order, such as setting a start date before deriving an end date.
-- Add new primitives to the shared generator when a form needs an uncovered field type.
-
-## Required Primitives
-
-Both platform generators must cover:
-
-| Primitive | Description |
-|-----------|-------------|
-| `fullName()` / name equivalent | Full name |
-| `firstName()` / `lastName()` | Name parts |
-| `email()` | Safe test email |
-| `phone()` | Project-default country code format |
-| `url()` | Valid HTTPS URL |
-| `sentence()` / `paragraph()` | Text content |
-| `richText()` | Minimal HTML paragraph |
-| `date(opts)` | Date string with past/future support |
-| `time()` | Time string |
-| `timezone()` | IANA timezone |
-| `int(min, max)` / integer equivalent | Integer range |
-| `decimal(min, max, decimals?)` | Decimal range |
-| `percentage()` | 0-100 style values |
-| `boolean()` | Boolean |
-| `pick(array)` | Random item |
-| `uuid()` | UUID where platform supports it |
-| `imageUrl()` | Placeholder image URL |
-| `youtubeUrl()` | Valid YouTube URL |
-| `duration()` | Duration in minutes |
-
-Implementation examples belong in the platform-specific form or utility skill, not here.
+Both generators cover full/first/last names, safe test email, project-country phone, HTTPS URL, sentence/paragraph, minimal-HTML `richText`, past/future `date(opts)`, time, IANA timezone, bounded integer/decimal (optional precision), percentage (0–100), boolean, `pick(array)`, UUID where supported, placeholder `imageUrl`, valid `youtubeUrl`, and duration in minutes. Keep implementation examples in platform form/utility guidance.
 
 ## Verification
 
-- Verify autofill is unavailable in release builds.
-- Verify generated values update ordinary form state and respect dependent-field validation.
-- Verify autofill does not submit the form, use real secrets, or trigger unintended external actions.
+Check release exclusion, ordinary draft updates, dependent validation, and no automatic submission, secrets, or external effects.

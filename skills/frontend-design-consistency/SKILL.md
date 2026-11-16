@@ -1,55 +1,32 @@
 ---
 name: frontend-design-consistency
-description: Use when implementing or visually changing frontend screens or components, or connecting a working prototype UI to real backend data, while preserving the existing app's UI and component design patterns.
+description: Use when creating or visually changing frontend UI, or connecting a working prototype to real backend data without redesigning it.
 ---
 
-# Frontend Design Consistency
+# Design Consistency
 
-## When To Use
+Read before new/visual frontend work on any platform, including prototype integration without intended visual changes. Backend, transport-only, and nonvisual copy edits need no visual audit. New apps follow approved direction with reusable patterns.
 
-Apply before implementing a new frontend screen/component, changing an existing one's visual presentation, or integrating a working prototype with real backend data, regardless of platform or framework. Prototype integration activates this skill even when no visual change is intended: preserving the existing UI is part of the task.
+## Inspect the baseline
 
-Pure backend work, transport-only changes, and copy-only corrections that do not change presentation do not require a visual audit. For a new app with no established UI, follow its approved design direction and establish reusable patterns rather than inventing a different style for each screen.
+Review theme/tokens, shared components, shell/navigation, and at least one maintained peer screen plus representative components where available. Identify composition, typography/colors, spacing/width/density, surfaces/borders/radii/shadows, icons/headers/buttons, states, supported devices/themes. Prefer repeated maintained patterns over isolated legacy UI. Use runtime/screenshots when available; distinguish source inspection from actual visual evidence. Name references in the report; clarify material conflicts instead of guessing a redesign.
 
-## Working Prototype + Real Backend: Integrate, Do Not Redesign
+## Prototype integration is not redesign
 
-- When the user asks to connect an existing working prototype to a real backend, treat that prototype as the approved UI baseline. Backend integration is **not** permission to redesign or replace it. This applies to every frontend platform, not only browser apps.
-- Preserve the screen composition and user journey: shell/navigation, headers, cards, table columns, form sections, wizard step count and order, side rails, action placement, dialogs, uploads, typography, spacing, density, colors, icons, and responsive behavior. Do not replace them with generic API-backed forms, tables, framework-default controls, or a newly invented layout merely because the data becomes asynchronous.
-- Inspect the actual prototype and its shared components first. Capture representative before screenshots when browser/runtime access permits; otherwise inspect the source and existing screenshots and state the verification limit. For an integration-only request, the working target screen is the primary reference—not an unrelated screen used to justify a redesign.
-- Adapt the data layer to the existing presentation. Prefer repositories/services, response-to-view-model mappings, canonical-ID/readable-label adapters, and feature-local state or hooks over rewriting the screen's markup and styles. Internal refactoring is allowed when it preserves the rendered design and intended interactions.
-- Small, targeted improvements are allowed when they support integration or fix a usability defect: inline validation, loading/error/retry feedback, pending/disabled states, accessible focus handling, real uploads, searchable live selectors, or a compact workflow action using the existing component style. Keep them local; an improvement must not become a wholesale UI rewrite.
-- Material changes require explicit UI approval first: replacing the page layout/component system, restructuring navigation, adding/removing/reordering wizard steps, changing table/form presentation, or removing established task surfaces. A backend implementation plan, new required fields, or a preference for standardization does not by itself authorize these changes. Explain the smallest necessary adjustment and obtain approval before proceeding.
-- Preserve existing capabilities and recognizable information areas. Replace mock values with real records without silently removing cards, controls, or entire sections. When the backend cannot yet support an area, retain its established presentation with an honest empty/unavailable state or clearly disabled action; explain significant gaps. Never preserve fake metrics, source links, uploads, approvals, or success claims merely to make the screen look populated.
-- Wire new approval/review behavior into the existing task surface and shared dialogs/buttons where practical. Do not turn backend workflow integration into an unrelated new frontend design.
+Treat the working target screen as approved baseline and primary reference—not an unrelated screen that justifies replacing it. Inspect its real components; capture before screenshots where possible or state source/screenshot-only limits.
 
-## Inspect Before Implementing
+Preserve composition/journey: shell/navigation, headers/cards/tables/form sections, wizard count/order, side rails/actions/dialogs/uploads, typography/spacing/density/colors/icons, and responsive behavior. Adapt repositories/services, view models, ID/label mapping, and local state/hooks to the presentation. Async data does not justify generic API forms, default controls, or markup/style replacement; internal refactoring must preserve output/interactions.
 
-- Review the app's overall visual language, not only the file being edited. Inspect the theme/design tokens, shared component library, app shell/navigation, and comparable screens in the same product.
-- Inspect at least one comparable screen and representative components from elsewhere in the app when available. Prefer maintained, repeated patterns over an isolated legacy screen.
-- Identify the established patterns for colors, typography, spacing, content widths, density, surfaces, borders, radii, shadows, icons, headers, buttons, and loading/empty/error states.
-- Check how those patterns adapt across the app's supported device classes and themes. Use existing screenshots or a running app when available; distinguish source inspection from runtime verification.
-- State the reference screens/components used when reporting the work. If existing patterns conflict materially and there is no clear maintained standard, clarify the intended direction rather than guessing a redesign.
+Local integration/usability improvements may add inline validation, states/retry/pending feedback, focus, real uploads, live searchable selection, or compact workflow actions in existing style. Approval/review uses current task surfaces/shared dialogs where practical. Material layout/component-system/navigation changes, reordered/new wizard steps, changed table/form presentation, or removed task areas need **explicit UI approval first**. Backend plans, required fields, and standardization preferences do not supply it; explain the smallest adjustment.
 
-## Implement Within The Existing Design Language
+Retain capabilities/information areas while replacing mocks with records. Unsupported backend areas keep honest empty/unavailable/disabled presentation; explain significant gaps. No fake metrics, links, uploads, approvals, or success claims to fill space.
 
-- Reuse existing shared components and theme tokens before creating alternatives. Extend a shared component when appropriate without changing unrelated consumers.
-- Match composition and component behavior as well as colors. Inheriting a theme alone is not sufficient if header structure, card treatment, action placement, spacing, or states look unrelated to the rest of the app.
-- Do not introduce framework-default controls, new palettes, fonts, icon families, decorative treatments, or one-off component variants that conflict with established patterns.
-- Keep feature-specific presentation local; promote genuinely cross-feature patterns into the app's shared component layer. Do not force feature-specific models or data loading into shared visual components.
-- Preserve accessibility, readable contrast, keyboard focus, and responsive behavior. Do not copy an existing usability defect merely for visual consistency.
-- A consistency fix is not authorization for an app-wide redesign. Broader visual changes require explicit scope; keep intentional redesigns distinct from routine feature implementation.
+## Reuse, without copying defects
 
-## Companions
+Use shared components/tokens, extending without unrelated consumer changes. Match behavior/composition, not theme colors alone. Avoid conflicting palettes/fonts/icon families/framework defaults/decorations/local variants. Feature presentation stays local; promote genuinely reusable patterns without feature models/fetching in shared visuals. Preserve contrast/accessibility/focus/responsiveness and fix—not reproduce—existing usability defects. Routine consistency is not an app-wide redesign mandate.
 
-- Read the matching behavioral `frontend-*` skills, then the platform implementation adapter. This skill supplements rather than replaces their requirements.
-- Read `frontend-device-layout.md` when layout or responsive behavior changes, and `frontend-ui-states.md` when data-state presentation changes.
-- Flutter theme/token implementation belongs in `flutter-theming.md`; shared widget boundaries belong in `flutter-common-widgets.md`.
+Read relevant shared behavior skills, then adapters. Layout changes add `frontend-device-layout.md`; data-state presentation adds `frontend-ui-states.md`; Flutter theme/widget mechanics use `flutter-theming.md`/`flutter-common-widgets.md`.
 
 ## Verification
 
-- For prototype-to-backend integration, compare before and after at equivalent data states and viewport sizes. Check the actual original layout, wizard steps, side panels, controls, styling, and navigation—not just whether API requests succeed. Distinguish real-data differences from layout changes, and label mocked browser checks as such.
-- Review the diff for replaced working screens, large CSS/markup rewrites, added wizard steps, removed capabilities, or unnecessary new presentation components. Every material visual departure needs explicit approval; report any small intentional improvements and any unavailable backend areas.
-- Compare the changed UI with the identified reference screens: header, type hierarchy, surfaces, spacing, icons, actions, and applicable data states should belong to the same app.
-- Check touched code for unnecessary one-off styles and duplicated shared components.
-- Exercise affected actions and keyboard operation at relevant mobile, tablet, and desktop sizes, including long content where applicable.
-- Run the platform's analysis/tests. Report which visual and runtime checks actually ran and which remain unverified.
+Compare equivalent before/after states/viewports against the original integration screen and maintained references. Separate real-data differences from layout changes; label mocks. Review replaced markup/CSS/screens, changed steps/capabilities, and unnecessary components; every material departure needs approval. Report local intentional improvements/backend gaps. Check duplicate one-off styling, affected actions/keyboard, relevant phone/tablet/desktop widths and long content, then platform analysis/tests. State runtime/visual limits.

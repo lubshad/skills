@@ -1,50 +1,26 @@
 ---
 name: frappe-file-images
-description: Use when Frappe APIs upload, store, attach, return, or transform files and image fields.
+description: Use when Frappe APIs accept, store, attach, transform, or return files/images.
 ---
 
-Follow these file and image API rules strictly when working on Frappe apps.
+# Frappe Files and Images
 
-## When To Apply
+Read `frappe-python.md` for implementation. Create through `frappe.get_doc({"doctype": "File", ...})`, attached to owner DocType/document/field. Explicit privacy: `is_private: 0` public, `1` protected.
 
-- Apply this skill for any backend API that accepts, stores, transforms, or returns files or image fields.
-- Apply it alongside `frappe-python.md` for whitelisted methods and shared API helpers.
+## One normalization boundary
 
-## Uploads
+Shared private helpers (prefer `api/_utils.py`) normalize every endpoint's relevant fields before serialization. Masar images use `get_signed_image_url_map()` in `apps/masar/masar/api/_utils.py`.
 
-- Create uploaded files through the `File` doctype using `frappe.get_doc({"doctype": "File", ...})`.
-- Always attach files to the owning doctype, document, and field.
-- Choose privacy intentionally:
-  - Use `is_private: 0` for public assets that can be exposed directly.
-  - Use `is_private: 1` for protected assets that must not be exposed as raw file paths.
+- Public `/files/...` and `/assets/<app>/...`: absolute `frappe.utils.get_url(...)`.
+- Private `/private/files/...`: signed download URL, never raw path.
+- Existing external HTTPS URLs: unchanged.
 
-## API Responses
+Reuse across profile/lookups/onboarding/history; clients receive directly usable URLs and stable `image`, `cover_image`, `file_url` names despite internal signing/storage changes.
 
-- Never return raw `/private/files/...` paths from API payloads.
-- When an API returns image or file URLs, normalize them through a shared helper before building the response payload.
-- In Masar, use `get_signed_image_url_map()` from `apps/masar/masar/api/_utils.py` for image fields.
+## Protected downloads
 
-## URL Rules
+Frappe still enforces file/document read permissions. Direct token-web tabs may arrive as Guest. Masar attachment actions use authenticated Dio through `FrappeFileOpener.open(...)` even while APIs return normalized/signed URLs. Do not make protected documents public to repair downloads without product approval. A required direct-browser experience needs a dedicated authenticated endpoint verifying owner-document access before streaming, not global permission bypass.
 
-- If the stored file is public (`/files/...`), return a full absolute URL with `frappe.utils.get_url(...)`.
-- If the stored value is a public app asset (`/assets/<app>/...`), return a full absolute URL with `frappe.utils.get_url(...)`.
-- If the stored file is private (`/private/files/...`), return a signed download URL instead of the raw path.
-- If the value is already a full external URL (`https://...`), keep it unchanged.
+## Verification
 
-## Shared Helper Pattern
-
-- Prefer one shared private helper in `api/_utils.py` instead of reimplementing file URL logic in each endpoint.
-- Endpoint modules should pass all relevant image fields into the helper, then map response fields from the normalized result.
-- Reuse the same helper in profile, lookup, onboarding, and history APIs so clients receive one consistent URL format.
-
-## Client Contract
-
-- API consumers should receive a directly usable URL, not a relative private path that requires client-side reconstruction.
-- Keep response field names stable (`image`, `cover_image`, `file_url`, etc.) even if the storage or signing logic changes internally.
-
-## Flutter Admin Private File Access
-
-- Frappe private file download endpoints still enforce file/document read permission. If a Flutter web app opens the URL directly in a browser tab, the request may arrive as `Guest` because token headers are not included.
-- For Masar Admin, backend APIs should continue returning normalized public URLs or signed private download URLs, but frontend attachment actions must open private files through `FrappeFileOpener.open(...)` so the request goes through authenticated Dio.
-- Do not fix private attachment failures by making protected documents public unless the product explicitly requires public access.
-- If a direct browser-open experience is required for protected files, add a dedicated authenticated backend endpoint that verifies the owning document access before streaming the file; do not bypass Frappe permissions globally.
+Check owner attachment/privacy, each URL class, stable response fields, authenticated downloads, and denied access without public exposure.

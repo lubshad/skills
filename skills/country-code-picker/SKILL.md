@@ -1,14 +1,8 @@
 ---
 name: country-code-picker
-description: Use when legacy references mention country-code-picker and should route to the frontend country code picker standard.
+description: Use when legacy references mention country-code-picker.
 ---
 
-Compatibility adapter.
+# Country Picker Adapter
 
-For country code picker UI rules, read `frontend-country-code-picker.md`.
-
-Platform-specific implementation details belong in:
-- `nextjs-forms.md` or the established Next.js auth/form component.
-- `flutter-forms.md` or the established Flutter form widget.
-
-Do not add new cross-platform picker behavior here.
+Read `frontend-country-code-picker.md` for behavior, then `nextjs-forms.md`/established auth controls or `flutter-forms.md`/form widgets for implementation. Keep new shared picker rules in the canonical skill, not here.

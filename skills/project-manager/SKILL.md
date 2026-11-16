@@ -1,161 +1,41 @@
 ---
 name: project-manager
-description: Use when analyzing live CoreAxis ERP project health, tasks, deadlines, milestones, dependencies, blockers, or risks, preparing status briefs, or executing explicitly requested project changes subject to the active agent's permissions.
+description: Use when analyzing live CoreAxis ERP project/task health, deadlines, dependencies, risks, briefs, or explicitly requested changes.
 ---
 
 # Project Manager
 
-## When to Use
+Read `erp-assistant.md` first for MCP, selection, privacy, permissions, mode, and execution. Not generic application planning; loading this skill grants no ERP authority.
 
-Use for CoreAxis ERP project planning, decision-oriented reports, and authorized
-project and task changes.
-Read `erp-assistant.md` first: its MCP checks, interactive selection, metadata,
-privacy, permissions, agent-mode restrictions, and execution rules apply here.
+## Resolve first
 
-Do not use this skill for generic application implementation planning. Loading
-it is not authorization to create or modify Projects, Tasks, or ERP configuration.
-Skills provide instructions, not agent-level tool permission enforcement.
+Inspect metadata and request only necessary Project fields: name/display name/status/active/priority/progress method and percentage, expected/actual dates/hours, modified. Normal analysis prefers active Yes/non-Cancelled, but explicit inactive/cancelled requests override that filter. Match name/display name case-insensitively; unique exact matches need no confirmation.
 
-## Project Resolution
+Missing/ambiguous project uses `question`: header `Project`, “Which CoreAxis project should I use?”, single selection, up to five matches plus next/previous five. Report `<project_name> (<Project.name>)`; Task filters use canonical `Project.name`.
 
-Resolve the project before querying its tasks.
+Paginate tasks sufficiently and match IDs/subjects, asking when ambiguous. Needed metadata may include status/priority/progress, group/milestone/parent, expected/actual dates/hours, dependencies, description/completed_on/modified. Present readable subjects with IDs where useful; avoid copying long descriptions.
 
-1. Inspect metadata before relying on field names or valid values. Fetch
-   accessible Projects with enough identifying and analytical fields when
-   available: `name`, `project_name`, `status`, `is_active`, `priority`,
-   `percent_complete`, `percent_complete_method`, `expected_start_date`,
-   `expected_end_date`, `actual_start_date`, `actual_end_date`, `actual_time`,
-   and `modified`. Request only fields needed for the user's analysis.
-2. For normal analysis, prefer `is_active = Yes` and status other than
-   `Cancelled`. Do not silently exclude inactive or cancelled projects when
-   explicitly requested.
-3. Match supplied references case-insensitively against both `Project.name`
-   and `Project.project_name`. Use a unique exact match without confirmation.
-4. If missing or ambiguous, use `question` with header `Project`, question
-   `Which CoreAxis project should I use?`, and `multiple: false`. Show up to
-   five matches, with `Show next 5` and `Show previous 5` when needed.
-5. Report `<project_name> (<Project.name>)`. All Task project filters must use
-   `{"project": "<Project.name>"}`, never just the display name.
+## Changes
 
-## Task Resolution
+Fetch current targets/dependencies and validate fields/values, links, dates, milestone semantics, cycles, and parent-before-child order. Proposals show canonical target/current→new/risk/side effects. Proposal defaults may suggest today/High but are unsaved, not commitments. Actual creation uses specified values or verified site defaults; omitted optional deadline stays unset. Ask only for required/material ambiguity, check project-scoped duplicates, and preserve ERP mode/permission restrictions. No special execution phrase is needed for explicit write requests in Build; switching modes alone is not authorization.
 
-Retrieve enough pages to avoid incomplete first-page analysis. Depending on
-the request, use these fields when available:
+## Analyze and rank
 
-- `name`, `subject`, `project`, `status`, `priority`, `progress`
-- `is_group`, `is_milestone`, `parent_task`
-- `exp_start_date`, `exp_end_date`, `expected_time`
-- `act_start_date`, `act_end_date`, `actual_time`
-- `depends_on_tasks`, `description`, `completed_on`, `modified`
+Use site timezone/today, or disclose session-date fallback once. Verify statuses: normally Open/Working/Pending Review/Overdue are incomplete and only Completed is complete. Exclude group-task double counts.
 
-Match references against both `Task.name` and `Task.subject`. For missing or
-ambiguous references, use `question` with readable subjects and IDs. Use
-canonical IDs internally and subjects first in responses, adding IDs for
-lookup or disambiguation. Avoid reproducing long descriptions unnecessarily.
+- Critical: overdue milestone, overdue Urgent/High, or overdue prerequisite of incomplete work.
+- Due today; Working; Pending Review; blocked by incomplete declared dependency; no-deadline unscheduled.
+- Upcoming risk: milestone/Urgent/High due within three calendar days.
+- Recent completion: completed today or previous seven calendar days with completion date.
 
-## Change Planning and Execution
+Action order: overdue milestones → overdue Urgent/High → due today → due/overdue review → blockers → upcoming milestone/high work → unscheduled. Within categories: milestone, Urgent>High>Medium>Low>unset, earliest deadline, lowest progress. Resolve prerequisites before starting blocked tasks.
 
-For proposed changes to projects, tasks, milestones, dependencies, deadlines,
-priority, status, progress, ownership, or workflow:
+Calculate available status/completion/overdue/due/blocked/unscheduled/review counts/percentages, milestone completion, average incomplete progress, expected/actual-hour variance, elapsed-time versus completion, momentum, and inferred stale Working tasks. Flag missing dates/priorities/estimates, contradictory progress/status, undated completions, and task/project timeline conflicts. Separate fact/calculation/inference/recommendation.
 
-1. Retrieve metadata for field requirements and valid values.
-2. Fetch existing targets and relevant dependencies.
-3. Validate proposed links, dates, dependencies, and allowed values.
-4. Present DocType, canonical ID, current and proposed values, dependencies,
-   risks, and material side effects.
-5. In Plan or for a proposal-only request, state that nothing was applied. In
-   Build or another write-capable agent, execute explicit change requests using
-   the ERP Assistant execution rules; no separate workflow or exit phrase is
-   required. A mode switch alone does not authorize unrequested changes.
+## Brief and verification
 
-For new Task proposals, resolve the canonical Project ID. If omitted, propose
-the current date as the deadline and `High` as priority, clearly labeling both
-as unsaved suggestions, not confirmed delivery commitments or authorized values.
-For execution, use user-specified values or verified site defaults; if an optional
-deadline is omitted, leave it unset rather than inventing a commitment. Ask only
-when required information or a material ambiguity remains. Validate the site's
-milestone field and value before setting a Task as a milestone. Validate dependency
-links for cycles and preserve parent/child creation order. Check for duplicate
-tasks within the resolved project before creation or retries. Never bypass agent
-restrictions or permissions with Python, database writes, or indirect changes.
-
-## Project Analysis
-
-Use today's date in the ERP site's timezone. If unavailable, use the session
-date and state that assumption once. Validate site status semantics; normally
-`Open`, `Working`, `Pending Review`, and `Overdue` are incomplete, and only
-`Completed` counts as completed. Avoid double-counting group/summary tasks as
-executable work.
-
-Classify incomplete executable tasks where applicable:
-
-| Category | Criteria |
-|----------|----------|
-| Critical | Overdue milestones, overdue Urgent/High tasks, or overdue tasks blocking incomplete work |
-| Due today | Expected end date is today |
-| In progress | Status is Working |
-| Awaiting review | Status is Pending Review |
-| Upcoming risk | Incomplete milestone or Urgent/High task due within the next three calendar days |
-| Blocked | At least one declared dependency is incomplete |
-| Unscheduled | No expected end date |
-| Recently completed | Completed today or in the previous seven calendar days, with a completion date |
-
-Rank recommended actions: overdue milestones; overdue Urgent/High tasks;
-tasks due today; Pending Review tasks due today or overdue; tasks blocking
-incomplete work; upcoming milestones and Urgent/High work; then incomplete
-tasks without deadlines. Within each category, rank milestones first, then
-`Urgent > High > Medium > Low > unset`, earliest deadline, and lowest progress.
-Recommend resolving prerequisites rather than starting blocked work.
-
-Calculate when data permits:
-
-- Task counts and percentages by status, completed versus incomplete executable
-  work, and overdue/due-today/blocked/unscheduled/pending-review counts.
-- Milestone completion and overdue milestones; average incomplete-work progress.
-- Expected versus actual hours and material variance; elapsed project time
-  versus reported completion.
-- Recent completion momentum and stale Working tasks, labeling staleness as an
-  inference rather than proof of inactivity.
-
-Highlight missing deadlines, priorities, estimates, inconsistent status and
-progress, completed tasks without completion dates, deadlines outside the
-project timeline, and absent or contradictory project dates.
-
-Separate `ERP fact`, `Calculated`, `Inference`, and `Recommendation`. Proposed
-actions and deadlines are not saved ERP values.
-
-## Brief Output
-
-For project briefs, daily summaries, status reports, or requests for what
-needs attention, use:
-
-```markdown
-# Project Manager Brief: <project_name> (<Project.name>)
-Date: <date and timezone/assumption>
-
-## Executive Summary
-## Project Health
-## Must Address Now
-## Milestones, Blockers, And Review Queue
-## Deadline Gaps
-## Progress And Insights
-## Recommended Actions
-## Data Quality And Assumptions
-```
-
-Include status, priority, timeline, completion, schedule health, and workload
-metrics in Project Health. For ranked tasks include subject, ID where useful,
-status, priority, deadline, progress, and reason. Include momentum, hours
-variance, inconsistencies, and trends in Progress And Insights. Note empty
-sections briefly; keep the highest-risk work first and actions short and ordered.
+Use `Project Manager Brief: <name> (<ID>)`, date/timezone, then Executive Summary; Project Health; Must Address Now; Milestones, Blockers, And Review Queue; Deadline Gaps; Progress And Insights; Recommended Actions; Data Quality And Assumptions. Include project status/priority/timeline/completion/schedule/workload; ranked task subject/ID/status/priority/deadline/progress/reason; momentum/hours/trends. Note empty sections briefly and prioritize risk.
 
 ## Verification
 
-- Confirm MCP access, active agent permissions, authorized scope, and the resolved
-  canonical Project and Task IDs.
-- Verify pagination, metadata, status semantics, timezone, and date boundaries.
-- Check dependency evidence and calculations, noting missing fields or records.
-- Distinguish facts, calculations, inferences, and unapplied recommendations.
-- In Plan or report-only work, confirm no ERP records were changed. For authorized
-  execution, verify saved values and report created/updated IDs and partial failures.
-- Confirm no local application code was changed by this ERP workflow.
+Check MCP/mode/scope/IDs, metadata/pagination/status/date boundaries, dependencies/calculations/missing data, and fact/proposal labels. Read-only work makes no ERP changes; writes verify saved IDs/partial outcomes. This workflow changes no local application code.

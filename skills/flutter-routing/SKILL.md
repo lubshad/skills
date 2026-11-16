@@ -1,53 +1,20 @@
 ---
 name: flutter-routing
-description: Use when adding or changing Flutter navigation, routes, route arguments, guards, redirects, or navigator behavior.
+description: Use when changing Flutter routes, arguments, guards, redirects, or navigator behavior.
 ---
 
-Follow these routing rules strictly when working on Flutter code.
+# Flutter Routing
 
-## Navigation Method
+Use named navigation (`Navigator.pushNamed(context, PlayerDetailScreen.routeName)`) through `AppRoute.onGenerateRoute` in `lib/core/app_route.dart`. Screens declare URL-friendly static route constants. The generator builds direct widget references, not a global widget map; UI never constructs `MaterialPageRoute` inline.
 
-Use `onGenerateRoute` for all navigation. Never use `MaterialPageRoute` directly in UI code.
+Pass IDs/minimal data, using typed arguments for multiple parameters. Destinations fetch their own models.
 
-## Structure
+## Lifecycle
 
-```
-lib/
-└── core/
-    └── app_route.dart      # Central route generator
-```
+Web deep links may leave `/` or splash mounted underneath. Before BLoC-listener, timer, or delayed navigation, require the owning route to be mounted and current (`mounted && ModalRoute.of(context)?.isCurrent == true`). Offstage startup/login routes must not redirect over active pages.
 
-## Rules
-
-### Route Declaration
-- The `AppRoute` class lives in its **own file** (`app_route.dart`).
-- Each screen declares its route name as a **static constant** on the widget class itself:
-  ```dart
-  class PlayerDetailScreen extends StatelessWidget {
-    static const routeName = '/player-detail';
-  }
-  ```
-- In `AppRoute.onGenerateRoute`, use **direct widget references** to build pages. Do not maintain a global `Map<String, Widget>`.
-
-### Arguments
-- Pass only **IDs or minimal data** as route arguments.
-- The destination screen fetches its own data — never pass entire model objects through navigation.
-- Use typed argument classes when a route needs more than one parameter.
-
-### Named Routes
-- **Always navigate via named routes**: `Navigator.pushNamed(context, PlayerDetailScreen.routeName)`.
-- Never construct `MaterialPageRoute` inline in widget code.
-
-### Deep Linking
-- Keep route names URL-friendly (`/player-detail`, `/match-history`) to support future deep linking.
-- When opening a named route directly on Flutter web, account for earlier routes (such as `/` or splash) that may remain mounted underneath it.
-
-### Route Lifecycle And Auth Redirects
-- Before navigating from a BLoC listener, timer, or delayed callback, check that the owning route is still mounted and current (for example, `mounted && ModalRoute.of(context)?.isCurrent == true`). An offstage splash or login route must not redirect over the active page.
-- Scope startup-session navigation to the startup check. Do not treat a later login, signup, or OTP error as a reason for the splash route to navigate again.
-- Consume pending navigation results once so a later timer or state change cannot repeat the same redirect. Keep form state intact when a recoverable request fails.
+Startup-session navigation belongs only to that check, not later login/signup/OTP failures. Consume pending navigation results once; preserve form values on recoverable failure.
 
 ## Verification
 
-- Open an auth route directly by URL, trigger a failed login or OTP request, and confirm the current route and entered values remain intact.
-- Confirm the splash route still navigates after the startup session check, and an expired authenticated session still returns to login.
+Open an auth URL directly, fail login/OTP, and confirm route and input preservation. Check startup-session navigation and expired-session return to login.

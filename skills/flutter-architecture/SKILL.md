@@ -1,63 +1,29 @@
 ---
 name: flutter-architecture
-description: Use when structuring Flutter projects, creating new Flutter features, or changing feature/module boundaries.
+description: Use when structuring Flutter projects, creating features, or changing module boundaries.
 ---
 
-Follow these architecture rules strictly when working on Flutter code.
+# Flutter Architecture
 
-## Project Structure
+**Feature first.** Each `lib/features/<feature>/` owns `bloc/`, `data/`, `models/`, `screens/`, and `widgets/`. Cross-feature helpers, widgets, config, and exceptions belong in `lib/core/`; features do not import each other's internals.
 
-Organize by **feature**, not by layer. Each feature is a self-contained module:
+## Files and services
 
-```
-lib/
-├── features/
-│   └── <feature_name>/
-│       ├── bloc/                # BLoC classes (events, states, bloc)
-│       ├── data/                # Repositories and data sources
-│       ├── models/              # Data models for this feature
-│       ├── screens/             # Full-page screens
-│       └── widgets/             # Reusable widgets scoped to this feature
-├── core/
-│   ├── helpers/                 # Shared helper classes
-│   ├── widgets/                 # Shared widgets (error, empty, loading)
-│   ├── config/                  # App configuration
-│   └── exceptions/              # Custom exception handling
-└── main_dev.dart / main_prod.dart
-```
+- One public widget per snake_case file matching its class (`PlayerCard` → `player_card.dart`).
+- Reusable methods live in helper classes. Wrap `shared_preferences` in a helper; widgets/BLoCs never call it directly. Format exceptions through the custom human-readable formatter.
+- `main_dev.dart` and `main_prod.dart` load separate API URLs, flags, and debug settings.
+- Give `MaterialApp` a `navigatorKey` for helpers needing navigation/dialog/toast context outside the widget tree.
 
-## Rules
+## Navigation shell
 
-### File Organization
-- **One widget per file.** Never define multiple public widgets in a single file.
-- **File naming.** Use snake_case matching the class name: `PlayerCard` → `player_card.dart`.
-- **Feature isolation.** A feature should not directly import another feature's internal files. Use shared `core/` for cross-feature code.
+Keep sidebar/body navigators in `features/navigation/`; the shell contains no top bar. Shared admin appbars belong only to first-level destinations (dashboard/listing/index). Nested detail/create/edit/profile/forms use local Back/Save/Reset/Refresh/workflow headers without global user/session details.
 
-### Helpers & Utilities
-- Create **helper classes** for reusable methods (formatting, validation, conversions).
-- Use a **separate helper** for `shared_preferences` — never call it directly in widgets or BLoCs.
-- Use a **custom exception formatter** to convert any exception into a human-readable message.
+Shared top bars exclude global search, date ranges, notifications, and desktop collapse controls unless a first-level page owns the feature. Sidebar renders desktop collapse/expand; shell may own its state/persistence. A narrow-layout page may expose a drawer opener.
 
-### App Configuration
-- Use **separate entry points** per environment: `main_dev.dart`, `main_prod.dart`.
-- Each entry point loads its own configuration (API base URL, feature flags, debug settings).
+Use multiple body navigators. Production keeps them mounted in an `IndexedStack` to retain nested routes/state. Debug mounts only the selected navigator through a small child keyed by index.
 
-### Global Context
-- Add `navigatorKey` in `MaterialApp` and use it to access context globally in helper classes (for navigation, dialogs, toasts outside the widget tree).
+`SuperAdminSidebarMapper` maps valid `WorkspaceSidebar` items to `NavigationDestinationItem`. Reject null/empty input, not sidebar names: Super Admin, Operational Admin, and Federation Admin share targets.
 
-### Navigation Shell
-- Implement a **navigation screen** that holds the sidebar and body navigators only; do not place the top bar in the navigation screen.
-- The shared admin top appbar belongs only inside first-level navigation destination screens, such as dashboards, listings, and index screens rendered directly from the sidebar/right navigation body.
-- Nested detail, create, edit, profile, and form screens must not include the shared admin top appbar or its user/session details. Use a compact local action row or detail header for Back, Save, Reset, Refresh, and record-specific actions instead.
-- Shared admin top bars should not contain global search, date range, notification actions, or desktop sidebar collapse/expand controls unless a first-level page explicitly owns that feature.
-- The navigation shell may own sidebar collapsed/expanded state and persistence callbacks, but the sidebar widget renders the desktop collapse/expand control.
-- Page top bars may render narrow-layout drawer open controls when the sidebar is hidden.
-- Use **multiple navigators** in the body for displaying content based on sidebar selections.
-- In production/non-debug builds, keep body navigators mounted with an `IndexedStack` so each sidebar item preserves its nested route stack and local widget state while switching sections.
-- In debug builds, mount only the selected body navigator through a small child widget keyed by the selected index so development cycles avoid eagerly building every section.
-- Treat the navigation shell as its own feature (`features/navigation/`).
+## Verification
 
-### Sidebar Mapper
-- The sidebar mapper (`SuperAdminSidebarMapper`) maps `WorkspaceSidebar` items to `NavigationDestinationItem` objects for the Flutter admin nav.
-- **Do not hardcode a specific sidebar name** (e.g. `'Super Admin'`) in the mapper. All Masar admin sidebars (Super Admin, Operational Admin, Federation Admin) share the same DocType/Page targets, so the mapper must accept any valid sidebar.
-- Guard against `null` or empty sidebar input, but do not reject sidebars based on their name.
+Check feature boundaries, file naming, shell/header ownership, and debug/production navigator lifetime against these rules.
