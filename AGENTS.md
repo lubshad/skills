@@ -145,6 +145,7 @@ For creating, configuring, or reviewing project-wide scheduled PR watchers, read
 
 | Skill | When to apply |
 |-------|---------------|
+| `screen-recording.md` | User-requested Android/iOS or web app screen recordings and video walkthroughs |
 | `visual-explainer.md` | Visual explanations of plans, implementations, architectures, workflows, and tradeoffs using diagram-first, self-contained HTML |
 | `penpot-solution-design.md` | Software architecture diagrams, user journeys, wireframes, UI systems, and clickable prototypes in Penpot through MCP; use shared frontend companions when designing their behaviors |
 | `api-parallelization.md` | Any work that adds, changes, reviews, or optimizes multiple API calls or remote data loads; run independent calls in parallel wherever possible |

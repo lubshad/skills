@@ -1,5 +1,40 @@
 [
   {
+    "scenario": "Record an Android app journey with Appium and save the video in the current working directory's recordings folder",
+    "skills": ["screen-recording"],
+    "forbidden_actions": ["substitute-browser-for-native-app", "save-to-filesystem-root-recordings", "overwrite-existing-recording"],
+    "cases": [
+      {"skills": ["screen-recording"], "actions": ["check-appium-session", "record-with-appium", "save-current-directory-recordings", "verify-video"], "valid": true},
+      {"skills": [], "actions": ["record-with-appium"], "valid": false},
+      {"skills": ["screen-recording"], "actions": ["substitute-browser-for-native-app"], "valid": false},
+      {"skills": ["screen-recording"], "actions": ["save-to-filesystem-root-recordings"], "valid": false}
+    ]
+  },
+  {
+    "scenario": "Record an iOS app journey using the connected Appium session and export a verified video without replacing earlier recordings",
+    "skills": ["screen-recording"],
+    "forbidden_actions": ["substitute-browser-for-native-app", "overwrite-existing-recording", "claim-unverified-recording-success"],
+    "cases": [
+      {"skills": ["screen-recording"], "actions": ["check-appium-recording-support", "record-with-appium", "save-current-directory-recordings", "verify-video"], "valid": true},
+      {"skills": ["screen-recording"], "actions": ["report-unsupported-appium-recording"], "valid": true},
+      {"skills": [], "actions": ["record-with-appium"], "valid": false},
+      {"skills": ["screen-recording"], "actions": ["overwrite-existing-recording"], "valid": false}
+    ]
+  },
+  {
+    "scenario": "Record a web app including a mobile-sized PWA using enabled connected browser tools, reporting a blocker if video recording is unsupported",
+    "skills": ["screen-recording"],
+    "forbidden_actions": ["silently-substitute-browser-automation", "present-performance-trace-as-video", "claim-disconnected-recording-success", "save-to-filesystem-root-recordings"],
+    "cases": [
+      {"skills": ["screen-recording"], "actions": ["check-browser-tools-enabled", "check-browser-connection", "check-video-capture-support", "save-current-directory-recordings", "verify-video"], "valid": true},
+      {"skills": ["screen-recording"], "actions": ["report-unsupported-browser-recording"], "valid": true},
+      {"skills": ["screen-recording"], "actions": ["ask-user-to-connect-desktop-browser"], "valid": true},
+      {"skills": [], "actions": ["check-browser-connection"], "valid": false},
+      {"skills": ["screen-recording"], "actions": ["present-performance-trace-as-video"], "valid": false},
+      {"skills": ["screen-recording"], "actions": ["claim-disconnected-recording-success"], "valid": false}
+    ]
+  },
+  {
     "scenario": "Update Sync production deployment SSH and rsync to use Cloudflare Tunnel without browser login, preserving direct SSH development and verifying the server host key",
     "skills": ["project-connections", "github-actions-deployment"],
     "forbidden_actions": ["direct-keyscan-tunnel-only-host", "disable-host-key-checking", "change-development-transport", "commit-private-key", "deploy"],

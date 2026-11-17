@@ -25,6 +25,8 @@ Reference map for all apps, sites, and their connections in this bench.
 
 | Project surface | Required local URL | Local run command |
 |-----------------|--------------------|-------------------|
+| DocScanner Ionic editor | `http://docscanner.localhost:5173` | Run `npm run dev -- --host 127.0.0.1 --port 5173 --strictPort` in `/home/lubshad/lufick/DocScanner/doc-scanner/ionic-editor/` |
+| DocScanner local QA reports | `http://docscanner.localhost:8877` | Run `python3 -m http.server 8877 --bind 127.0.0.1 --directory /home/lubshad/lufick/DocScanner/recordings` (local HTML reports and recording assets only) |
 | Masar web | `http://masar.localhost:3000` | `./run_masar_next.sh` |
 | Sync Dating concept 1 | `http://sync-dating.localhost:3001` | Run `npm run dev` in `next_apps/sync-dating/concept-1/` |
 | Sync Dating admin | `http://sync-dating.localhost:3006` | Run `npm run dev` in `next_apps/sync-dating/admin/` |
