@@ -76,7 +76,7 @@ fix-introduced or newly evidenced using prior-head comparison. A previously miss
 finding requires a focused related-workflow recheck, not another author QA demand.
 Finish independent source review and report all confirmed major defects together;
 the three-bullet summary is not a finding quota. The runner appends full structured
-findings for larger completed sets. Partial publication stays explicitly incomplete.
+findings for larger completed sets. Keep incomplete findings private.
 Follow the shared contract for exact fields, bounded continuations and compatibility.
 Structural checks cannot guarantee exhaustive review. Preserve historical records,
 major-only scope, model/schedule permissions and merge/deployment protections.
@@ -143,7 +143,7 @@ New cycles use the changed digest; active cycles retain their loaded policy.
   credentials/DDL. A lock probe or environment assertion is not ownership proof.
 - Rely on OpenCode's automatically discovered workspace instructions and skill catalog at the verified workspace session location. Watcher prompts must not duplicate discovery through filesystem catalog scans, manual skill-file loading procedures, fixed skill shortlists, or mandatory per-cycle skill inventories. Automatic discovery makes skills available; relevant skill content still activates through the normal workspace workflow, not all skills at once.
 - Follow applicable workspace and repository-local guidance for the changed behavior without a watcher-specific loading layer. Record concrete review findings and validation evidence, not a mandatory skill coverage map. Review agents must not create skills or expand their authorization.
-- Fetch fresh PR metadata and exact head/base SHAs. Review the PR diff, including removed behavior. Read full changed files and relevant unchanged callers/tests for context, not as a whole-project audit.
+- Fetch fresh PR metadata and exact head/base SHAs. Review the PR diff, including removed behavior. Use the assigned review scope; read surrounding code and relevant callers/tests as needed, not as a whole-project audit.
 - Report confirmed major bugs, security issues or serious regressions introduced or worsened by the PR. Include evidence, location, realistic impact, and minimum correction. Do not block for convention/style nits, unrelated pre-existing defects or speculative refactors.
 - Use isolated detached review worktrees under `~/.local/share/<project>-pr-watch/checkouts/`, supplied as invocation `review_directory`. Follow `.automation/storage.md` for disk admission and explicit legacy offload. Original `/tmp` namespaces are cleanup-only; preserve user branches, worktrees, and uncommitted changes; do not reset, discard, stash, force-push, or resolve conflicts.
 - Implement runner-level worktree cleanup under the project lock at startup and in `finally` after the agent/process group exits, including cached/idle cycles, failures and handled timeouts. Reconcile hard-crash leftovers on the next locked invocation. Scope cleanup to registered watcher-owned direct children of the project's private worktree directory and explicit local repository allowlist; never touch primary/user checkouts, follow symlinks, globally prune registrations, or force-remove anything.
@@ -176,7 +176,7 @@ New cycles use the changed digest; active cycles retain their loaded policy.
   completion with merge approval or deployment success. Keep detailed findings in
   ordinary actionable feedback under the delivery and ordering rules below.
 - Summaries show stable finding IDs, New/Still open/Verified fixed/Needs recheck
-  labels, short next actions, required validation states and a direct feedback
+  labels, required validation states and a direct feedback
   link. Show pending delivery explicitly. Keep cumulative attempts private and
   public timestamps at minute-level UTC; never expose raw logs or local paths.
 - A new-head review starts a new comment. Preserve earlier public comments and
@@ -207,17 +207,7 @@ New cycles use the changed digest; active cycles retain their loaded policy.
 
 ### Finding continuity and runner-delivered feedback (v4)
 
-- Publish confirmed defects without waiting for unrelated review work. For
-  incomplete records use the separate `partial_feedback.finding_ids` check in
-  `.automation/review-completion.md`: at most three selected `code_defect` findings,
-  exact invocation head/base, reviewed repository-relative `location` and concrete
-  evidence. The runner generates explicitly partial feedback after successful child
-  exit. Keep validation gaps, dependencies and watcher failures separate. Preserve
-  all unresolved history; partial publication cannot resolve findings/checks,
-  complete review, reset retry budgets or authorize merge/deployment. Validate
-  completed companion PR feedback independently of another PR's incomplete result.
-  Keep author verification, ordering, deduplication and durable recovery. Test only
-  with mocks; configuration work must not publish retrospective comments.
+- Publish one consolidated report only after the individual PR source review completes. Keep incomplete findings private.
 
 - Follow `.automation/review-completion.md` v4 and shared
   `.automation/pr_watch_review_evidence.py`. Every review record requires
@@ -248,8 +238,7 @@ New cycles use the changed digest; active cycles retain their loaded policy.
   GitHub checks, required tests, permissions or exact-head merge protection.
 - For invocation open-PR reviews, agents prepare concise `feedback.body` in the
   structured result; they do not also post it. After successful agent exit and
-  exact-head/base completion/continuity validation (or the separate partial-finding
-  publication check above), the runner verifies the actual
+  exact-head/base completion/continuity validation, the runner verifies the actual
   author and delivers ordinary feedback using the ordering rules below. Existing
   release-failure feedback remains agent-owned. This changes delivery ownership,
   not repository permissions or merge/deployment authority.
@@ -398,12 +387,7 @@ New cycles use the changed digest; active cycles retain their loaded policy.
   unresolved-code continuity with mocks only. Never run live reviews, merge,
   deploy or publish comments to test this policy change.
 
-- Mock partial-findings publication separately from completion: explicit selected
-  IDs, exact head/base, reviewed source locations, concrete evidence, stable
-  revisions and public-safe text. Reject duplicate/stale/malformed evidence and
-  failed children. Preserve old unresolved findings/checks, keep review incomplete,
-  and test author/commit races, deduplication, delivery recovery and independently
-  completed companion PR feedback. Never post live comments to validate this path.
+- Mock incomplete checkpoints, consolidated reporting, targeted fix verification and gate refresh without source re-review.
 
 - Test release preparation with mocks and disposable local remotes: 300-second helper/default and 330000-ms enclosing deadline contract across all four policies, streamed private logs, process-group timeout cleanup, no implicit command retry, two durable recovery claims, refusal of missing/ambiguous promotion evidence and failed/promoted/external releases, preserved errors/clones and unchanged developer refs. Confirm the shared contract enters policy digests without live reviews or deployments.
 
