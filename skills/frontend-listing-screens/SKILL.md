@@ -25,6 +25,8 @@ Meaningful supported batch actions enable checkbox/select-all/local selection an
 
 Primary row/card action opens dedicated read-only details in current router/navigator unless stronger domain action exists. Pass ID/minimal typed arguments; destination loads through normal data layer and handles load/error/retry/missing values. Mobile uses normal navigation. Checkbox/actions consume independent taps; destructive actions follow `frontend-interaction-patterns.md`.
 
+If the product uses a listing detail sidebar, preserve the list state on close and follow the sidebar layout and overflow rules in `frontend-admin-detail-pages.md`.
+
 ## Pagination and devices
 
 Default size **20**, global choices exactly **10,20,50,100**; exceptions need explicit task/reason. Load persisted preference before first fetch and save before/when reloading first page. Generic pagination accepts values/callbacks; feature/store/repository persists.

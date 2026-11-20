@@ -406,6 +406,18 @@
     ]
   },
   {
+    "scenario": "Admin listing opens a read-only detail sidebar with a persistent footer and keyboard-accessible overflow actions",
+    "skills": [
+      "frontend-design-consistency",
+      "frontend-admin-panels",
+      "frontend-listing-screens",
+      "frontend-ui-states",
+      "frontend-admin-detail-pages",
+      "frontend-interaction-patterns",
+      "frontend-device-layout"
+    ]
+  },
+  {
     "scenario": "Frappe app production deployment through GitHub Actions with deploy branch promotion",
     "skills": [
       "frappe-deployment",
