@@ -1,11 +1,13 @@
 ---
 name: nextjs-deployment
-description: Use when configuring or explaining Next.js deployment, nginx, PM2, runtime environment files, or SSH targets.
+description: Use when configuring or explaining Next.js deployment, nginx, PM2 startup or reboot recovery, runtime environment files, or SSH targets.
 ---
 
 # Next.js Deployment
 
 Read [the deployment runbook](DEPLOYMENT.md) before script/workflow/runtime changes. It owns exact artifacts, flags, environment-file handling, Masar legacy paths, Node/PM2 bootstrap, and checks. Use `project-connections.md` for hosts and `github-actions-deployment.md` for CI, credentials, and Cloudflare SSH.
+
+For maintenance on a PM2-managed Next.js host, follow the runbook's **PM2 Startup and Reboot Recovery** section before and after an authorized reboot.
 
 ## Boundaries
 

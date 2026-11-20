@@ -26,7 +26,13 @@ Use this skill when explaining, creating, or updating deployment workflows and s
 - Use an app-specific loopback port and proxy it through nginx; nginx does not require the application to live under `/var/www`.
 - Generate `.env.production` from GitHub environment-scoped variables and secrets and install it at `$HOME/<app-name>/.env.production` (or the active release path required by the runtime). Follow the environment-file contract in `github-actions-deployment.md`.
 - Install PM2 under `$HOME/.local` when global package installation would require elevated permissions, and include `$HOME/.local/bin` in the remote `PATH`.
-- Configure nginx, TLS, and PM2 boot startup separately as one-time privileged server setup.
+- Configure nginx and TLS as one-time server setup. For every new PM2-managed Next.js service, include automatic startup at boot in that setup so the app starts after a reboot without anyone logging in. If privileged setup is not authorized, report boot startup as pending rather than treating the deployment as reboot-ready.
+
+## PM2 Startup and Reboot Recovery
+
+1. Before a planned reboot, identify the app's PM2 owner, home, PM2 and Node paths, and loopback port. As that user, check that the expected process is online and the saved process list contains the intended apps. Check whether `pm2-<user>.service` is enabled, or verify the host's existing equivalent startup mechanism. If none is enabled, surface the risk and prepare manual recovery before rebooting.
+2. For authorized startup setup, run `pm2 save` as the PM2 owner after reviewing the running process list. Run `pm2 startup systemd -u <user> --hp <home>` as an administrator with the resolved PM2 and Node directories on `PATH`. Verify the generated unit uses the expected user and paths, and that `systemctl is-enabled pm2-<user>` reports `enabled`. Reuse a verified startup mechanism on later deployments and save again when the intended process list or startup parameters change. A saved process list is not a startup service. Do not add a second startup mechanism or reboot just to test without approval.
+3. After the authorized reboot, confirm the boot ID changed, the startup service is active if configured, the app is online and listening on its loopback port, and the public HTTPS route returns its pre-reboot response. An active nginx service alone is not enough. If HTTPS returns 502 and the process is missing, check the startup unit and app logs. If no startup service is running and the saved list matches the intended apps, restore it with `pm2 resurrect` as the PM2 owner, then repeat the health checks. Report manual recovery separately from verified automatic startup.
 
 ## Masar Legacy Defaults
 
