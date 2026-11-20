@@ -15,9 +15,11 @@ Validate resolved destinations and redirects before transmitting credentials. Th
 
 Explicit request modes: authenticated, public, cookie-session—not inferred namespace prefixes. Read latest credentials at dispatch and retain all contract-required metadata/necessary persisted compatibility. Merge headers case-insensitively; features cannot override client auth. Public calls carry no stored tokens; cookie writes retain CSRF. Server credentials stay request-scoped, never mutable shared defaults or cross-user caches. No secret/header/auth-payload logs.
 
-## Web tokens: BFF boundary
+## Web authentication boundaries
 
-New browser token auth prefers same-origin BFF. Keep upstream secrets/refresh tokens/source metadata server-controlled, in sessions keyed by opaque HttpOnly cookies or purpose-bound authenticated-encrypted HttpOnly payloads. HttpOnly alone is not encryption. No API secrets in client props/JSON/browser storage/JS-readable cookies.
+For static React apps that require managed-device API login, use the direct-token setup in the [browser client reference](references/browser-client.md). It uses origin-scoped `localStorage` so tabs share a login without a server runtime. Do not apply this storage policy to other authentication modes.
+
+For server-backed web apps, prefer a same-origin BFF. Keep upstream secrets, refresh tokens, and source metadata server-controlled, in sessions keyed by opaque HttpOnly cookies or purpose-bound authenticated-encrypted HttpOnly payloads. HttpOnly alone is not encryption. Keep BFF credentials out of browser storage and browser-visible responses.
 
 Hosted cookies need Secure, explicit SameSite, host-only scope, bounded expiry; keys stay private runtime config, never committed/public env. Local HTTP exceptions cannot weaken hosted settings. Cookie-auth BFF writes—including login/logout—check exact configured Origin and expected content type or CSRF token. Reject caller-selected upstream destinations/credential redirects.
 

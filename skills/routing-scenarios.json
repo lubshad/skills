@@ -1,5 +1,14 @@
 [
   {
+    "scenario": "Implement direct managed-device Frappe login for a static React app with cross-tab restoration and device revocation",
+    "skills": ["frontend-api-client", "frappe-api-contracts"],
+    "forbidden_actions": ["apply-browser-token-storage-to-server-backed-apps", "require-server-proxy-for-direct-token-login", "replace-device-auth-with-cookie-session"],
+    "cases": [
+      {"skills": ["frontend-api-client", "frappe-api-contracts"], "actions": ["verify-cross-tab-logout"], "valid": true},
+      {"skills": ["frontend-api-client", "frappe-api-contracts"], "actions": ["apply-browser-token-storage-to-server-backed-apps"], "valid": false}
+    ]
+  },
+  {
     "scenario": "Record an Android app journey with Appium and save the video in the current working directory's recordings folder",
     "skills": ["screen-recording"],
     "forbidden_actions": ["substitute-browser-for-native-app", "save-to-filesystem-root-recordings", "overwrite-existing-recording"],

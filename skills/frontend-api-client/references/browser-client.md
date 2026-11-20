@@ -2,9 +2,8 @@
 
 For React/Vite or other browser apps already using native fetch, use a backend-scoped wrapper instead of introducing Axios solely for interceptors.
 
-For new web token-authentication flows, apply the shared skill's BFF credential-security rule first. Browser requests use same-origin application endpoints with cookie credentials; only the server injects upstream token headers. The direct-backend patterns below describe compatibility for existing browser clients, not the preferred storage design for new applications. Static-only React/Vite/Flutter web deployments need a server/BFF service to provide this boundary; do not pretend HttpOnly storage can be implemented entirely in client code.
+For server-backed web apps using a BFF, browser requests use same-origin endpoints with cookie credentials; only the server sends upstream token headers. For static React using managed-device API login, follow the direct-token setup below.
 
-- In Zeronic, the wrapper is `frappeFetch` in `react_apps/zeronic/src/lib/frappe-api.ts`.
 - Feature calls provide `/api/` paths and request options. The client owns token headers; `auth: "none"` marks public requests and `auth: "session"` preserves cookie sessions.
 - Resolve and validate paths against the configured backend before reading credentials. Reject absolute/external paths and disallow redirects for token API calls.
 - Use `Headers` to merge object, tuple-array, and Headers inputs case-insensitively. Remove caller-supplied credential headers before applying the selected mode.
@@ -24,4 +23,17 @@ const response = await frappeFetch("/api/method/example.login", {
 });
 ```
 
-Do not import browser credential storage into server-rendered code. Next.js server routes use request-scoped credentials through their existing server client.
+Do not import browser credential storage into server-rendered code. Server routes use request-scoped credentials through their own client.
+
+## Static React managed-device login
+
+- Call the configured backend origin directly. Allow the app's exact origin and required headers in backend CORS. Use HTTPS in hosted environments. This setup does not require a proxy, session cookie, or extra service.
+- Store only the validated API key, secret, and authorization source in `localStorage` using an app-specific key. Use a stable, non-secret installation UUID for device identity. Separate apps by origin when they need separate logins. Keep credentials out of React state, URLs, logs, and messages.
+- Restore login by validating the device credential with the backend when the app starts. Listen for storage changes across tabs. Clear the signed-in UI when the credential is removed; revalidate changes before using a replacement. Late failures must not clear a newer login. Do not restore an old tab-only credential after logout.
+- Revoke the device on the backend at sign-out, then clear the stored credential and signed-in UI across tabs. If revocation fails, still clear browser auth and report that server revocation was not confirmed. Direct API login does not configure realtime routing.
+
+**Storage risk:** `localStorage` persists after the browser closes. JavaScript on the app's origin can read it, so an XSS flaw can expose a reusable credential. Document this tradeoff; do not treat browser storage as equivalent to HttpOnly storage.
+
+## Verification
+
+Check fresh independent tabs, isolation between app origins, cross-tab logout, rejected revoked credentials, failed revocation, and stale requests after token rotation. Verify a real authenticated request against the intended backend and distinguish it from mocked browser tests.

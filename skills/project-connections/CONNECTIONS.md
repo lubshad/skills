@@ -305,6 +305,8 @@ local workflow files do not prove GitHub configuration or a live release is read
 | Admin frontend URL (dev) | `http://usafe-safety.localhost:3004` | Run `./run.sh` in `react_apps/usafe_admin/`; required URL for local runs, tests, and Playwright |
 | Super admin frontend URL (dev) | `http://usafe-safety.localhost:3007` | Run `./run.sh` in `react_apps/usafe_super_admin/`; required URL for local runs, tests, and Playwright |
 
+Both React apps use direct managed-device API authentication against the Frappe backend. Their frontend origins differ by port locally and hostname in hosted builds, so logins are not shared between the apps.
+
 ## Environment Config
 
 ### Ecommerce Storefront

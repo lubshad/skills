@@ -19,7 +19,7 @@ Read `frontend-api-client.md`; backend-scoped clients own headers. Generate/pers
 
 Persist `api_key`, `api_secret`, and `authorization_source` together. Managed source is `Flutter Device Credential`; send `Authorization: token <api_key>:<api_secret>` plus `Frappe-Authorization-Source: Flutter Device Credential`, otherwise Frappe looks up User keys. Supported old User tokens may omit source; do not guess device provenance.
 
-Web retains the tuple server-side or in authenticated-encrypted HttpOnly cookies behind a BFF. Browser cookie auth is not a Frappe session; BFF still uses backend token mode. Stable browser UUID is non-secret. Login/token exchange/OTP issuance are explicitly public; `logout_device` is authenticated despite the namespace. Cookie-session APIs remain distinct, including CSRF.
+Follow `frontend-api-client.md` for credential storage: static React managed-device clients use its direct-token browser setup, while server-backed web apps prefer a BFF. A BFF cookie is distinct from a native Frappe session; the BFF can still use backend token mode. Flutter Utils device limits and revocation apply to issued device credentials, not native Frappe sessions. Login, token exchange, and OTP issuance are public; `logout_device` is authenticated despite the namespace. Cookie-session APIs use their own CSRF contract.
 
 Verify deployed login **and subsequent authenticated read**; issuance mocks miss absent schema/headers.
 
